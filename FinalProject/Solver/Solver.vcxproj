@@ -148,6 +148,7 @@ copy /Y "..\Shared\Lib\SDL2\SDL2.dll" "$(OutDir)"</Command>
     <ClCompile Include="..\Shared\Include\ImGui\imgui_stdlib.cpp" />
     <ClCompile Include="..\Shared\Include\ImGui\imgui_tables.cpp" />
     <ClCompile Include="..\Shared\Include\ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="Interpreter.cpp" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -240,12 +241,16 @@ copy /Y "..\Shared\Lib\SDL2\SDL2.dll" "$(OutDir)"</Command>
     <ClInclude Include="..\Shared\Include\SDL2\SDL_version.h" />
     <ClInclude Include="..\Shared\Include\SDL2\SDL_video.h" />
     <ClInclude Include="..\Shared\Include\SDL2\SDL_vulkan.h" />
+    <ClInclude Include="Interpreter.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shared\Include\ImGui\imgui.natstepfilter" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="..\Shared\Include\ImGui\imgui.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="testboard.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

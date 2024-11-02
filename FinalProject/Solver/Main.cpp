@@ -2,10 +2,18 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <imgui_stdlib.h>
+#include "Interpreter.h"
 
 #include <SDL2Singleton.h>
 
 SDLSingleton* SDLSingleton::mpInstance = nullptr;
+
+HashiBoard* SetupHashiBoard() 
+{
+	HashiBoard* hashiBoard = new HashiBoard();
+	hashiBoard->ParsePuzzle();
+	return hashiBoard;
+}
 
 int main(int argc, char* argv[])
 {
@@ -25,6 +33,8 @@ int main(int argc, char* argv[])
 		SDL->GetRenderer()
 	);
 	ImGui_ImplSDLRenderer2_Init(SDL->GetRenderer());
+
+	HashiBoard* hashiBoard = SetupHashiBoard();
 
 	// Main loop.
 	bool bRunning = true;
