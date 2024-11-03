@@ -53,6 +53,9 @@
     <ClCompile Include="..\Shared\Include\Common\SDL2Singleton.cpp">
       <Filter>Include\Common</Filter>
     </ClCompile>
+    <ClCompile Include="Interpreter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Shared\Include\ImGui\imconfig.h">
@@ -322,6 +325,9 @@
     <ClInclude Include="..\Shared\Include\Common\SDL2Singleton.h">
       <Filter>Include\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Interpreter.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shared\Include\ImGui\imgui.natstepfilter">
@@ -332,5 +338,8 @@
     <Natvis Include="..\Shared\Include\ImGui\imgui.natvis">
       <Filter>Include\ImGui</Filter>
     </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="testboard.txt" />
   </ItemGroup>
 </Project>
