@@ -8,13 +8,6 @@
 
 SDLSingleton* SDLSingleton::mpInstance = nullptr;
 
-HashiBoard* SetupHashiBoard() 
-{
-	HashiBoard* hashiBoard = new HashiBoard();
-	hashiBoard->ParsePuzzle();
-	return hashiBoard;
-}
-
 int main(int argc, char* argv[])
 {
 	// Initialize all things SDL.
@@ -34,7 +27,11 @@ int main(int argc, char* argv[])
 	);
 	ImGui_ImplSDLRenderer2_Init(SDL->GetRenderer());
 
-	HashiBoard* hashiBoard = SetupHashiBoard();
+	HashiBoard* hashiBoard = new HashiBoard();
+
+	// ImGui Variables - Start ===============
+	string filePath = "";
+	// ImGui Variables - End =================
 
 	// Main loop.
 	bool bRunning = true;
@@ -56,7 +53,14 @@ int main(int argc, char* argv[])
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 
-		ImGui::Begin("Hello, World!");
+		ImGui::Begin("Input");
+
+		ImGui::InputText("File Path", &filePath);
+
+		if (ImGui::Button("Show Board"))
+		{
+			hashiBoard->Initialize(filePath);
+		}
 
 		ImGui::End();
 
@@ -65,7 +69,10 @@ int main(int argc, char* argv[])
 
 		SDL_RenderClear(SDL->GetRenderer());
 
-		hashiBoard->RenderBoard();
+		if (hashiBoard)
+		{
+			hashiBoard->RenderBoard();
+		}
 
 		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), SDL->GetRenderer());
 

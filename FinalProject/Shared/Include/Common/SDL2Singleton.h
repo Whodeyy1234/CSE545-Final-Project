@@ -11,6 +11,7 @@
 #define ID_SCALE 4
 #define ASCII_DIGIT_OFFSET 48
 #define ASCII_ITOA(x) static_cast<char>(x + ASCII_DIGIT_OFFSET)
+#define ASCII_ATOI(x) static_cast<int>(x - ASCII_DIGIT_OFFSET)
 
 /// <summary>
 /// SDL2 Global Singleton for obtaining SDL2 related attributes.

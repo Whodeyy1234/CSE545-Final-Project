@@ -1,5 +1,7 @@
 #include <vector>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <SDL2Singleton.h>
 #pragma once
 using namespace std;
@@ -44,13 +46,7 @@ public:
 		coords[1] = argCoords[1];
 		bIsComplete = false;
 	}
-	~Node()
-	{
-		for (struct Neighbor* neighbor : neighbors)
-		{
-			delete neighbor;
-		}
-	}
+	~Node();
 
 	void PrintNodeInfo() const;
 
@@ -82,39 +78,30 @@ struct Neighbor
 class HashiBoard
 {
 public:
-	//TO-DO: Add a way to handle setting up a puzzle through a file, probably a txt. 
-
-	const int puzzleSizeX = 7;
-	const int puzzleSizeY = 7;
-
-	//A vector of vectors that indicates the state of the puzzle. Each element of the puzzle dictates a different part of the puzzle based on their value.
-	//0:	An empty spacee on the puzzle. 
-	//1-8:	An island on the puzzle, with a value as dictated with the number.
+	//A vector of vectors that indicates the state of the board. Each element of the board dictates a different part of the board based on their value.
+	//0:	An empty spacee on the board. 
+	//1-8:	An island on the board, with a value as dictated with the number.
 	//-1:	|	1 bridge vertical
 	//-2:	||	2 bridges vertical
 	//-3:	-	1 bridge horizontal
 	//-4:	=	2 bridges horizontal
-	vector<vector<int>> puzzle =
-	{
-		{0, 2, 0, 5, 0, 0, 2 },
-		{0, 0, 0, 0, 0, 0, 0 },
-		{4, 0, 2, 0, 2, 0, 4 },
-		{0, 0, 0, 0, 0, 0, 0 },
-		{0, 1, 0, 5, 0, 2, 0 },
-		{0, 0, 0, 0, 0, 0, 0 },
-		{4, 0, 0, 0, 0, 0, 3 }
-	};
+	vector<vector<int>> board;
+
+	// Size of the board.
+	int boardSizeX;
+	int boardSizeY;
 
 	vector<Node*> islands; //All the islands that are on the board.
 
+public:
 	/// <summary>
 	/// Default constructor to help with initialization.
 	/// </summary>
-	HashiBoard() 
+	HashiBoard() : bLongerWidth(false), boardSizeX(0), boardSizeY(0)
 	{
 		texture = SDL_CreateTexture(SDL->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
-		bLongerWidth = puzzle[0].size() >= puzzle.size();
 	}
+
 	/// <summary>
 	/// Default destructor to help free memory.
 	/// </summary>
@@ -128,10 +115,17 @@ public:
 	}
 
 	/// <summary>
-	/// Parses through a given puzzle in the puzzle variable, and converts it to islands, and figures out the neighbors to the islands. 
+	/// Initializes the hashi board with a file.
 	/// </summary>
-	/// <returns>Returns true if puzzle was successfully setup, false otherwise. </returns>
-	bool ParsePuzzle();
+	/// <param name="filePath">Path to the board file.</param>
+	/// <returns>Whether the board was initialized properly.</returns>
+	bool Initialize(string filePath);
+
+	/// <summary>
+	/// Parses through a given board in the board variable, and converts it to islands, and figures out the neighbors to the islands. 
+	/// </summary>
+	/// <returns>Returns true if board was successfully setup, false otherwise. </returns>
+	bool Parseboard();
 
 	/// <summary>
 	/// Update a given node's neighbors by checking for the first 'hit' of a node in each cardinal direction.
@@ -159,6 +153,9 @@ public:
 	/// <returns>Returns a valid node pointer if one exists, otherwise returns nullptr.</returns>
 	Node* GetNodeInDirection(Direction direction, int row, int col);
 
+	/// <summary>
+	/// Renders the hashi texture to the window.
+	/// </summary>
 	void RenderBoard();
 
 private:
@@ -166,16 +163,26 @@ private:
 	/// Texture to render to.
 	/// </summary>
 	SDL_Texture* texture;
+
 	/// <summary>
 	/// Whether or not the width is larger than the height.
 	/// </summary>
 	bool bLongerWidth;
+
+private:
+	/// <summary>
+	/// Parses through a board file.
+	/// </summary>
+	/// <param name="filePath">Path to the board.</param>
+	/// <returns>Whether or not the file was properly parsed.</returns>
+	bool ParseBoardFile(string filePath);
 
 	/// <summary>
 	/// Obtains the radius of the islands.
 	/// </summary>
 	/// <returns>Radius of the islands.</returns>
 	const int GetIslandRadius() const;
+
 	/// <summary>
 	/// Renders a single island to the texture.
 	/// </summary>
@@ -183,6 +190,7 @@ private:
 	/// <param name="CenterX">The center of the island in pixels x.</param>
 	/// <param name="CenterY">The center of the island in pixels y.</param>
 	void RenderIsland(const int Id, const int CenterX, const int CenterY);
+
 	/// <summary>
 	/// Renders a single bridge connection to the texture.
 	/// </summary>

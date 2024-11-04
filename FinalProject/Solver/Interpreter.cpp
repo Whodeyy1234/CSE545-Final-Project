@@ -14,12 +14,89 @@ void Node::PrintNodeInfo() const
 	}
 }
 
-bool HashiBoard::ParsePuzzle() 
+Node::~Node()
+{
+	for (Neighbor* neighbor : neighbors)
+	{
+		delete neighbor;
+	}
+}
+
+bool HashiBoard::Initialize(string filePath)
+{
+	if (ParseBoardFile(filePath))
+	{
+		bLongerWidth = board[0].size() >= board.size();
+
+		boardSizeX = static_cast<int>(board[0].size());
+		boardSizeY = static_cast<int>(board.size());
+	}
+
+	return false;
+}
+
+bool HashiBoard::ParseBoardFile(string filePath)
+{
+	ifstream file(filePath, ios::in);
+	if (file.is_open())
+	{
+		int numRows = 0;
+		bool bBoardStarted = false;
+
+		string line;
+		getline(file, line);
+		while (!file.eof())
+		{
+			getline(file, line);
+			if (line.size())
+			{
+				const size_t openBracket = line.find('[');
+				const size_t closeBracket = line.find(']');
+				const size_t comma = line.find(',');
+				if (openBracket != string::npos && !bBoardStarted)
+				{
+					bBoardStarted = true;
+				}
+				else if (openBracket != string::npos && bBoardStarted)
+				{
+					board.push_back(vector<int>());
+				}
+				else if (closeBracket != string::npos && bBoardStarted)
+				{
+					++numRows;
+				}
+				else if (comma != string::npos && bBoardStarted)
+				{
+					string::const_iterator sIter = line.cbegin();
+					for (sIter; sIter != line.cend(); ++sIter)
+					{
+						int id = ASCII_ATOI(*sIter);
+						if (id >= 0 && id <= 9)
+						{
+							board[numRows].push_back(id);
+						}
+					}
+				}
+			}
+		}
+
+		file.close();
+	}
+
+	if (board.size())
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool HashiBoard::Parseboard() 
 {
 	int rowIndex = 0;
 	int columnIndex = 0;
 	int currentID = 0;
-	for (const vector<int> row : puzzle) 
+	for (const vector<int> row : board) 
 	{
 		for (const int& nodeValue : row)
 		{
@@ -86,23 +163,23 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 	case Direction::LEFT: 
 		for (index = col - 1; index > 0; index--) 
 		{
-			parsedNodeValue = puzzle[row][index];
+			parsedNodeValue = board[row][index];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(row, index); }
 			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
 		}
 		break;
 	case Direction::RIGHT:
-		for (index = col + 1; index < puzzleSizeX; index++)
+		for (index = col + 1; index < boardSizeX; index++)
 		{
-			parsedNodeValue = puzzle[row][index];
+			parsedNodeValue = board[row][index];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(row, index); }
 			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
 		}
 		break;
 	case Direction::DOWN:
-		for (index = row + 1; index < puzzleSizeY; index++)
+		for (index = row + 1; index < boardSizeY; index++)
 		{
-			parsedNodeValue = puzzle[index][col];
+			parsedNodeValue = board[index][col];
 			if (parsedNodeValue > 0)  { return GetNodeAtCoords(index, col); }
 			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
 		}
@@ -110,7 +187,7 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 	case Direction::UP:
 		for (index = row - 1; index > 0; index--)
 		{
-			parsedNodeValue = puzzle[index][col];
+			parsedNodeValue = board[index][col];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(index, col); }
 			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
 		}
@@ -121,21 +198,26 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 
 void HashiBoard::RenderBoard() 
 {
+	if (!board.size())
+	{
+		return;
+	}
+
 	// Swap render target to the member texture.
 	SDL_SetRenderTarget(SDL->GetRenderer(), texture);
 	// Set the color to white.
 	SDL_SetRenderDrawColor(SDL->GetRenderer(), 255, 255, 255, 255);
 
 	// Obtain the grid width and height.
-	const int gridHeight = GRID_HEIGHT(puzzle.size());
-	const int gridWidth = GRID_WIDTH(puzzle[0].size());
+	const int gridHeight = GRID_HEIGHT(board.size());
+	const int gridWidth = GRID_WIDTH(board[0].size());
 
 	// Iterate over the game board.
-	for (int y = 0; y < puzzle.size(); ++y)
+	for (int y = 0; y < board.size(); ++y)
 	{
-		for (int x = 0; x < puzzle[0].size(); ++x)
+		for (int x = 0; x < board[0].size(); ++x)
 		{
-			int gridId = puzzle[y][x];
+			int gridId = board[y][x];
 
 			// If the id is positive, an island is formed.
 			if (gridId > 0)
@@ -160,7 +242,7 @@ void HashiBoard::RenderBoard()
 
 const int HashiBoard::GetIslandRadius() const
 {
-	return (bLongerWidth ? GRID_WIDTH(puzzle[0].size()) : GRID_HEIGHT(puzzle.size())) * ISLAND_RADIUS_FACTOR;
+	return (bLongerWidth ? GRID_WIDTH(board[0].size()) : GRID_HEIGHT(board.size())) * ISLAND_RADIUS_FACTOR;
 }
 
 void HashiBoard::RenderIsland(const int Id, const int CenterX, const int CenterY)
@@ -213,8 +295,8 @@ void HashiBoard::RenderBridge(const int Type, const int CenterX, const int Cente
 	// Obtains the radius of the islands.
 	const int r = GetIslandRadius();
 	// Obtains the grid width and height.
-	const int gridHeight = GRID_HEIGHT(puzzle.size());
-	const int gridWidth = GRID_WIDTH(puzzle[0].size());
+	const int gridHeight = GRID_HEIGHT(board.size());
+	const int gridWidth = GRID_WIDTH(board[0].size());
 	// Calculates the shift in both directions needed.
 	const int horizontalIslandShift = bLongerWidth ? r * 2 : static_cast<int>(r * BRIDGE_LENGTH_FACTOR);
 	const int verticalIslandShift = !bLongerWidth ? r * 2 : static_cast<int>(r * BRIDGE_LENGTH_FACTOR);
