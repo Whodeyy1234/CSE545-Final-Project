@@ -9,6 +9,8 @@
 #define FONT_FILE_PATH "../Shared/Lib/SDL2/VCR_OSD_MONO_1.001.ttf"
 #define POINT_DIM 5
 #define ID_SCALE 4
+#define ASCII_DIGIT_OFFSET 48
+#define ASCII_ITOA(x) static_cast<char>(x + ASCII_DIGIT_OFFSET)
 
 /// <summary>
 /// SDL2 Global Singleton for obtaining SDL2 related attributes.

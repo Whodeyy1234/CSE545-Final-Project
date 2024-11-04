@@ -65,6 +65,8 @@ int main(int argc, char* argv[])
 
 		SDL_RenderClear(SDL->GetRenderer());
 
+		hashiBoard->RenderBoard();
+
 		ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), SDL->GetRenderer());
 
 		SDL_RenderPresent(SDL->GetRenderer());
@@ -74,6 +76,8 @@ int main(int argc, char* argv[])
 	ImGui_ImplSDLRenderer2_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext();
+
+	delete hashiBoard;
 
 	// Shutdown SDL.
 	if (SDL->Destroy())

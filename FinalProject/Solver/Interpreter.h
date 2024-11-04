@@ -1,15 +1,21 @@
 #include <vector>
 #include <iostream>
+#include <SDL2Singleton.h>
 #pragma once
 using namespace std;
 
 struct Neighbor;
 
-//These should be used for later, when visualizing the bridges on screen.
+// Helpful macros for rendering.
 #define VERT_SINGLE_BRIDGE -1
 #define VERT_DOUBLE_BRIDGE -2
 #define HORI_SINGLE_BRIDGE -3
 #define HORI_DOUBLE_BRIDGE -4
+#define GRID_HEIGHT(y) static_cast<int>(SCREEN_HEIGHT / y)
+#define GRID_WIDTH(x) static_cast<int>(SCREEN_WIDTH / x)
+#define ISLAND_RADIUS_FACTOR 1/6
+#define OFFSET_FACTOR 1/4
+#define BRIDGE_LENGTH_FACTOR 3/4
 
 enum class Direction 
 {
@@ -37,6 +43,13 @@ public:
 		coords[0] = argCoords[0];
 		coords[1] = argCoords[1];
 		bIsComplete = false;
+	}
+	~Node()
+	{
+		for (struct Neighbor* neighbor : neighbors)
+		{
+			delete neighbor;
+		}
 	}
 
 	void PrintNodeInfo() const;
@@ -95,6 +108,26 @@ public:
 	vector<Node*> islands; //All the islands that are on the board.
 
 	/// <summary>
+	/// Default constructor to help with initialization.
+	/// </summary>
+	HashiBoard() 
+	{
+		texture = SDL_CreateTexture(SDL->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+		bLongerWidth = puzzle[0].size() >= puzzle.size();
+	}
+	/// <summary>
+	/// Default destructor to help free memory.
+	/// </summary>
+	~HashiBoard()
+	{
+		SDL_DestroyTexture(texture);
+		for (Node* node : islands)
+		{
+			delete node;
+		}
+	}
+
+	/// <summary>
 	/// Parses through a given puzzle in the puzzle variable, and converts it to islands, and figures out the neighbors to the islands. 
 	/// </summary>
 	/// <returns>Returns true if puzzle was successfully setup, false otherwise. </returns>
@@ -125,4 +158,36 @@ public:
 	/// <param name="col"></param>
 	/// <returns>Returns a valid node pointer if one exists, otherwise returns nullptr.</returns>
 	Node* GetNodeInDirection(Direction direction, int row, int col);
+
+	void RenderBoard();
+
+private:
+	/// <summary>
+	/// Texture to render to.
+	/// </summary>
+	SDL_Texture* texture;
+	/// <summary>
+	/// Whether or not the width is larger than the height.
+	/// </summary>
+	bool bLongerWidth;
+
+	/// <summary>
+	/// Obtains the radius of the islands.
+	/// </summary>
+	/// <returns>Radius of the islands.</returns>
+	const int GetIslandRadius() const;
+	/// <summary>
+	/// Renders a single island to the texture.
+	/// </summary>
+	/// <param name="Id">Id of the given island.</param>
+	/// <param name="CenterX">The center of the island in pixels x.</param>
+	/// <param name="CenterY">The center of the island in pixels y.</param>
+	void RenderIsland(const int Id, const int CenterX, const int CenterY);
+	/// <summary>
+	/// Renders a single bridge connection to the texture.
+	/// </summary>
+	/// <param name="Type">The type of bridge to build.</param>
+	/// <param name="CenterX">The center of the island in pixels x.</param>
+	/// <param name="CenterY">The center of the island in pixels y.</param>
+	void RenderBridge(const int Type, const int CenterX, const int CenterY);
 };

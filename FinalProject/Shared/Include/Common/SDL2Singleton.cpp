@@ -17,7 +17,7 @@ bool SDLSingleton::Initialize()
 
 	// Make the window
 	mpWindow = SDL_CreateWindow(
-		"TSP Solver",
+		"Hashi Puzzle Solver",
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		SCREEN_WIDTH,
