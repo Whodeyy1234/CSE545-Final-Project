@@ -122,36 +122,10 @@ public:
 	bool Initialize(string filePath);
 
 	/// <summary>
-	/// Parses through a given board in the board variable, and converts it to islands, and figures out the neighbors to the islands. 
+	/// Resets the current hashi board object.
 	/// </summary>
-	/// <returns>Returns true if board was successfully setup, false otherwise. </returns>
-	bool Parseboard();
-
-	/// <summary>
-	/// Update a given node's neighbors by checking for the first 'hit' of a node in each cardinal direction.
-	/// If a 'hit' gets nothing, or hits a bridge, then no neighbor exists in that direction. 
-	/// </summary>
-	/// <param name="node">Pointer to the node that is checking its neighbors.</param>
-	/// <param name="bShouldClearNeighbors">Should the neighbors list be cleared out before updating? Should usually be true, but here just in case. </param>
-	void UpdateNeighborInfo(Node* node, bool bShouldClearNeighbors = true); 
-
-	/// <summary>
-	/// Gets the node at specified (y, x) coordinates. Y
-	/// Yes, I hate that they're in (y,x), but at least I'm making it clear here.
-	/// </summary>
-	/// <param name="row"></param>
-	/// <param name="col"></param>
-	/// <returns>Returns a valid node pointer if one exists, otherwise returns nullptr. </returns>
-	Node* GetNodeAtCoords(int row, int col);
-
-	/// <summary>
-	/// Checks if a node exists in any direction from a given point, and returns it. 
-	/// </summary>
-	/// <param name="direction"></param>
-	/// <param name="row"></param>
-	/// <param name="col"></param>
-	/// <returns>Returns a valid node pointer if one exists, otherwise returns nullptr.</returns>
-	Node* GetNodeInDirection(Direction direction, int row, int col);
+	/// <returns>Whether the object was reset or not.</returns>
+	bool Reset();
 
 	/// <summary>
 	/// Renders the hashi texture to the window.
@@ -176,6 +150,38 @@ private:
 	/// <param name="filePath">Path to the board.</param>
 	/// <returns>Whether or not the file was properly parsed.</returns>
 	bool ParseBoardFile(string filePath);
+
+	/// <summary>
+	/// Parses through a given board in the board variable, and converts it to islands, and figures out the neighbors to the islands. 
+	/// </summary>
+	/// <returns>Returns true if board was successfully setup, false otherwise. </returns>
+	bool Parseboard();
+
+	/// <summary>
+	/// Update a given node's neighbors by checking for the first 'hit' of a node in each cardinal direction.
+	/// If a 'hit' gets nothing, or hits a bridge, then no neighbor exists in that direction. 
+	/// </summary>
+	/// <param name="node">Pointer to the node that is checking its neighbors.</param>
+	/// <param name="bShouldClearNeighbors">Should the neighbors list be cleared out before updating? Should usually be true, but here just in case. </param>
+	void UpdateNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
+
+	/// <summary>
+	/// Gets the node at specified (y, x) coordinates. Y
+	/// Yes, I hate that they're in (y,x), but at least I'm making it clear here.
+	/// </summary>
+	/// <param name="row"></param>
+	/// <param name="col"></param>
+	/// <returns>Returns a valid node pointer if one exists, otherwise returns nullptr. </returns>
+	Node* GetNodeAtCoords(int row, int col);
+
+	/// <summary>
+	/// Checks if a node exists in any direction from a given point, and returns it. 
+	/// </summary>
+	/// <param name="direction"></param>
+	/// <param name="row"></param>
+	/// <param name="col"></param>
+	/// <returns>Returns a valid node pointer if one exists, otherwise returns nullptr.</returns>
+	Node* GetNodeInDirection(Direction direction, int row, int col);
 
 	/// <summary>
 	/// Obtains the radius of the islands.

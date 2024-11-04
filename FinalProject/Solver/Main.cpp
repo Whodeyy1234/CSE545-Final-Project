@@ -31,6 +31,7 @@ int main(int argc, char* argv[])
 
 	// ImGui Variables - Start ===============
 	string filePath = "";
+	string cachedFilePath = "";
 	// ImGui Variables - End =================
 
 	// Main loop.
@@ -59,6 +60,11 @@ int main(int argc, char* argv[])
 
 		if (ImGui::Button("Show Board"))
 		{
+			if (cachedFilePath != filePath)
+			{
+				cachedFilePath = filePath;
+				hashiBoard->Reset();
+			}
 			hashiBoard->Initialize(filePath);
 		}
 

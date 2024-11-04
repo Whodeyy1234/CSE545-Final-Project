@@ -30,9 +30,24 @@ bool HashiBoard::Initialize(string filePath)
 
 		boardSizeX = static_cast<int>(board[0].size());
 		boardSizeY = static_cast<int>(board.size());
+
+		Parseboard();
 	}
 
 	return false;
+}
+
+bool HashiBoard::Reset()
+{
+	SDL_DestroyTexture(texture);
+	texture = SDL_CreateTexture(SDL->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+	bLongerWidth = false;
+	boardSizeX = 0;
+	boardSizeY = 0;
+	board.clear();
+	islands.clear();
+
+	return true;
 }
 
 bool HashiBoard::ParseBoardFile(string filePath)
