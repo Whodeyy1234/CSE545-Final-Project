@@ -323,12 +323,12 @@ bool HashiBoard::Process(Parameters params)
 	// Performing crossovers and mutations.
 	if (crossoverChromes.size())
 	{
-
+		// @TODO: Put crossover logic here.
 	}
 
 	if (mutationChromes.size())
 	{
-
+		// @TODO: Put mutation logic here.
 	}
 	// Evaluate fitness.
 	for (FitnessChromosome& chrome : population)
@@ -348,12 +348,13 @@ bool HashiBoard::Process(Parameters params)
 	// Perform Wisdom of Crowds if enabled.
 	if (params.bWithWisdom && currGen % params.gensPerWisdom == 0)
 	{
-
+		// @TODO: Put wisdom of crowds logic here.
 	}
 	// Outputting to csv if new best parent.
 	if (population[0].first != bestPerc)
 	{
 		bestPerc = population[0].first;
+		// @TODO: Add csv logic here.
 	}
 	// Ending condition.
 	if (bestPerc >= 1.0f || currGen > params.maxGenerations)
