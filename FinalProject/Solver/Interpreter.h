@@ -36,13 +36,13 @@ enum class Direction : int
 /// </summary>
 struct Parameters
 {
-	int PopulationSize;
-	float CrossoverProb;
-	float MutationProb;
-	int MaxGenerations;
+	int populationSize;
+	float crossoverProb;
+	float mutationProb;
+	int maxGenerations;
 	bool bWithWisdom;
-	int GensPerWisdom;
-	float ElitismPerc;
+	int gensPerWisdom;
+	float elitismPerc;
 };
 
 //The baseline structure, these are the 'islands' in the graph. 

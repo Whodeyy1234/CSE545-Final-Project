@@ -292,7 +292,7 @@ bool HashiBoard::Process(Parameters params)
 	// Initialization.
 	if (!population.size())
 	{
-		InitializePopulation(params);
+		InitializePopulation(params.populationSize);
 	}
 	++currGen;
 	vector<pair<int, int>> crossoverChromes;
@@ -302,7 +302,7 @@ bool HashiBoard::Process(Parameters params)
 	for (int i = 0; i < population.size(); ++i)
 	{
 		float perc = static_cast<float>(rand() / RAND_MAX);
-		if (perc < params.CrossoverProb)
+		if (perc < params.crossoverProb)
 		{
 			if (!bCrossoverStarted)
 			{
@@ -315,7 +315,7 @@ bool HashiBoard::Process(Parameters params)
 				crossoverChromes[crossoverChromes.size() - 1].second = i;
 			}
 		}
-		else if (perc < params.MutationProb)
+		else if (perc < params.mutationProb)
 		{
 			mutationChromes.push_back(i);
 		}
@@ -341,12 +341,12 @@ bool HashiBoard::Process(Parameters params)
 		{
 			return a.first > b.first;
 		});
-	if (population.size() > params.PopulationSize)
+	if (population.size() > params.populationSize)
 	{
-		population.erase(population.begin() + params.PopulationSize, population.end());
+		population.erase(population.begin() + params.populationSize, population.end());
 	}
 	// Perform Wisdom of Crowds if enabled.
-	if (params.bWithWisdom && currGen % params.GensPerWisdom == 0)
+	if (params.bWithWisdom && currGen % params.gensPerWisdom == 0)
 	{
 
 	}
@@ -356,7 +356,7 @@ bool HashiBoard::Process(Parameters params)
 		bestPerc = population[0].first;
 	}
 	// Ending condition.
-	if (bestPerc >= 1.0f || currGen > params.MaxGenerations)
+	if (bestPerc >= 1.0f || currGen > params.maxGenerations)
 	{
 		return false;
 	}
