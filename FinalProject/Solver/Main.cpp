@@ -28,10 +28,20 @@ int main(int argc, char* argv[])
 	ImGui_ImplSDLRenderer2_Init(SDL->GetRenderer());
 
 	HashiBoard* hashiBoard = new HashiBoard();
+	Parameters params;
 
 	// ImGui Variables - Start ===============
-	string filePath = "";
-	string cachedFilePath = "";
+	string filePath = "";				// File path to the board.
+	// Algorithm Parameters - Start ==========
+	int populationSize = 200;			// Size of the population.
+	float crossoverProb = 0.7f;			// Probability a crossover occurs.
+	float mutationProb = 0.05f;			// Probability a mutation occurs.
+	int maxGenerations = 2000;			// The max generations the algorithm runs.
+	bool bWithWisdom = false;			// Whether or not to use Wisdom of Crowds
+	int gensPerWisdom = 50;				// The number of generations between each wisdom path.
+	float elitismPerc = 0.3f;			// The percentage of best paths to use.
+	// Algorithm Parameters - End ============
+	bool bAlgRunning = false;
 	// ImGui Variables - End =================
 
 	// Main loop.
@@ -54,21 +64,44 @@ int main(int argc, char* argv[])
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 
-		ImGui::Begin("Input");
-
-		ImGui::InputText("File Path", &filePath);
-
-		if (ImGui::Button("Show Board"))
+		if (!bAlgRunning)
 		{
-			if (cachedFilePath != filePath)
-			{
-				cachedFilePath = filePath;
-				hashiBoard->Reset();
-			}
-			hashiBoard->Initialize(filePath);
-		}
+			ImGui::Begin("Input");
 
-		ImGui::End();
+			ImGui::InputText("File Path", &filePath);
+
+			if (ImGui::Button("Show Board"))
+			{
+				hashiBoard->Reset();
+				hashiBoard->Initialize(filePath);
+			}
+
+			if (ImGui::CollapsingHeader("Genetic Parameters", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::InputInt("Population Size", &populationSize);
+				ImGui::InputFloat("Crossover Probability", &crossoverProb);
+				ImGui::InputFloat("Mutation Probability", &mutationProb);
+				ImGui::InputInt("Maximum Generations", &maxGenerations);
+				ImGui::Checkbox("With Wisdom", &bWithWisdom);
+				if (bWithWisdom)
+				{
+					ImGui::InputInt("Generations Per Wisdom", &gensPerWisdom);
+					ImGui::InputFloat("Elitism Percentage", &elitismPerc);
+				}
+			}
+
+			if (ImGui::Button("Run"))
+			{
+				params = { populationSize, crossoverProb, mutationProb, maxGenerations, bWithWisdom, gensPerWisdom, elitismPerc };
+				bAlgRunning = true;
+			}
+
+			ImGui::End();
+		}
+		else
+		{
+			bAlgRunning = hashiBoard->Update(params);
+		}
 
 		// Render
 		ImGui::Render();

@@ -1,0 +1,2 @@
+Generated a C:3 by R:3 puzzle with 3 islands
+[ [ 2, 0, 1 ], [ 0, 0, 0 ], [ 1, 0, 0 ] ] 

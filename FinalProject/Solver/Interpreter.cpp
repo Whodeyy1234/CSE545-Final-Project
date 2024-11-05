@@ -46,50 +46,61 @@ bool HashiBoard::Reset()
 	boardSizeY = 0;
 	board.clear();
 	islands.clear();
+	population.clear();
 
 	return true;
 }
 
 bool HashiBoard::ParseBoardFile(string filePath)
 {
+	// Open the file.
 	ifstream file(filePath, ios::in);
 	if (file.is_open())
 	{
+		// Helpful parsing variables.
 		int numRows = 0;
 		bool bBoardStarted = false;
+		bool bRowStarted = false;
 
+		// While the file hasn't ended.
 		string line;
-		getline(file, line);
 		while (!file.eof())
 		{
+			// Obtain a line and ensure it's valid.
 			getline(file, line);
 			if (line.size())
 			{
-				const size_t openBracket = line.find('[');
-				const size_t closeBracket = line.find(']');
-				const size_t comma = line.find(',');
-				if (openBracket != string::npos && !bBoardStarted)
+				// Iterate through the line.
+				string::const_iterator sIter = line.cbegin();
+				for (sIter; sIter != line.cend(); ++sIter)
 				{
-					bBoardStarted = true;
-				}
-				else if (openBracket != string::npos && bBoardStarted)
-				{
-					board.push_back(vector<int>());
-				}
-				else if (closeBracket != string::npos && bBoardStarted)
-				{
-					++numRows;
-				}
-				else if (comma != string::npos && bBoardStarted)
-				{
-					string::const_iterator sIter = line.cbegin();
-					for (sIter; sIter != line.cend(); ++sIter)
+					// If valid integer and in the board and row.
+					int id = ASCII_ATOI(*sIter);
+					if (id >= 0 && id <= 9 && bBoardStarted && bRowStarted)
 					{
-						int id = ASCII_ATOI(*sIter);
-						if (id >= 0 && id <= 9)
-						{
-							board[numRows].push_back(id);
-						}
+						board[numRows].push_back(id);
+					}
+					// If we see an open bracket and the board isn't started.
+					else if (*sIter == '[' && !bBoardStarted)
+					{
+						bBoardStarted = true;
+					}
+					// If we see an open bracket and the board is started but the row isn't.
+					else if (*sIter == '[' && bBoardStarted && !bRowStarted)
+					{
+						bRowStarted = true;
+						board.push_back(vector<int>());
+					}
+					// If we see a closing bracket and the board is started and the row is started.
+					else if (*sIter == ']' && bBoardStarted && bRowStarted)
+					{
+						++numRows;
+						bRowStarted = false;
+					}
+					// If we see a closing bracket and the board is started but the row isn't.
+					else if (*sIter == ']' && bBoardStarted && !bRowStarted)
+					{
+						bBoardStarted = false;
 					}
 				}
 			}
@@ -98,6 +109,7 @@ bool HashiBoard::ParseBoardFile(string filePath)
 		file.close();
 	}
 
+	// If the board is populated, the parsing worked.
 	if (board.size())
 	{
 		return true;
@@ -176,7 +188,7 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 	switch (direction) 
 	{
 	case Direction::LEFT: 
-		for (index = col - 1; index > 0; index--) 
+		for (index = col - 1; index >= 0; index--) 
 		{
 			parsedNodeValue = board[row][index];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(row, index); }
@@ -200,7 +212,7 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 		}
 		break;
 	case Direction::UP:
-		for (index = row - 1; index > 0; index--)
+		for (index = row - 1; index >= 0; index--)
 		{
 			parsedNodeValue = board[index][col];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(index, col); }
@@ -209,6 +221,293 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 		break;
 	}
 	return nullptr;
+}
+
+bool HashiBoard::Update(Parameters params)
+{
+	// Process the algorithm.
+	bool bFinished = Process(params);
+
+	// Find the chromosome with the best completion percentage.
+	Population::iterator Iter = find_if(population.begin(), population.end(),
+		[this](const FitnessChromosome& a)
+		{
+			return a.first == bestPerc;
+		});
+	Chromosome& chrome = (*Iter).second;
+	// Iterate through the genes to populate the board.
+	for (Gene& gene : chrome)
+	{
+		uint8 mask = gene.second;
+		Node* node = islands[gene.first];
+
+		int x = node->coords[1];
+		int y = node->coords[0];
+
+		int bitCount = 0;
+		while (mask)
+		{
+			if (mask & 1)
+			{
+				switch (bitCount % BITMASK_BOUNDARY)
+				{
+				case 0:
+					for (int index = x - 1; board[y][index] <= 0; --index)
+					{
+						board[y][index] = bitCount < BITMASK_BOUNDARY ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
+					}
+					break;
+				case 1:
+					for (int index = x + 1; board[y][index] <= 0; ++index)
+					{
+						board[y][index] = bitCount < BITMASK_BOUNDARY ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
+					}
+					break;
+				case 2:
+					for (int index = y + 1; board[index][x] <= 0; ++index)
+					{
+						board[index][x] = bitCount < BITMASK_BOUNDARY ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
+					}
+					break;
+				case 3:
+					for (int index = y - 1; board[index][x] <= 0; --index)
+					{
+						board[y - 1][x] = bitCount < BITMASK_BOUNDARY ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
+					}
+					break;
+				default:
+					break;
+				}
+			}
+			mask >>= 1;
+			++bitCount;
+		}
+	}
+
+	return bFinished;
+}
+
+bool HashiBoard::Process(Parameters params)
+{
+	// Initialization.
+	if (!population.size())
+	{
+		InitializePopulation(params);
+	}
+	++currGen;
+	vector<pair<int, int>> crossoverChromes;
+	bool bCrossoverStarted = false;
+	vector<int> mutationChromes;
+	// Determining crossovers and mutations.
+	for (int i = 0; i < population.size(); ++i)
+	{
+		float perc = static_cast<float>(rand() / RAND_MAX);
+		if (perc < params.CrossoverProb)
+		{
+			if (!bCrossoverStarted)
+			{
+				bCrossoverStarted = true;
+				crossoverChromes.push_back(pair<int, int>(i, -1));
+			}
+			else
+			{
+				bCrossoverStarted = false;
+				crossoverChromes[crossoverChromes.size() - 1].second = i;
+			}
+		}
+		else if (perc < params.MutationProb)
+		{
+			mutationChromes.push_back(i);
+		}
+	}
+	// Performing crossovers and mutations.
+	if (crossoverChromes.size())
+	{
+
+	}
+
+	if (mutationChromes.size())
+	{
+
+	}
+	// Evaluate fitness.
+	for (FitnessChromosome& chrome : population)
+	{
+		EvaluateChromosome(chrome);
+	}
+	// Removing bad parents.
+	sort(population.begin(), population.end(),
+		[this](const FitnessChromosome& a, const FitnessChromosome& b)
+		{
+			return a.first > b.first;
+		});
+	if (population.size() > params.PopulationSize)
+	{
+		population.erase(population.begin() + params.PopulationSize, population.end());
+	}
+	// Perform Wisdom of Crowds if enabled.
+	if (params.bWithWisdom && currGen % params.GensPerWisdom == 0)
+	{
+
+	}
+	// Outputting to csv if new best parent.
+	if (population[0].first != bestPerc)
+	{
+		bestPerc = population[0].first;
+	}
+	// Ending condition.
+	if (bestPerc >= 1.0f || currGen > params.MaxGenerations)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool HashiBoard::InitializePopulation(int populationSize)
+{
+	// Seed the random generator.
+	srand(static_cast<unsigned int>(time(0)));
+	// Create an empty chromosome.
+	Chromosome emptyChrome;
+	for (Node* node : islands)
+	{
+		emptyChrome.push_back(Gene(node->nodeID, 0));
+	}
+
+	// Iterate till the population is filled.
+	int count = 0;
+	while (count < populationSize)
+	{
+		// Add an empty chromosome.
+		population.push_back(FitnessChromosome(0.f, Chromosome(emptyChrome)));
+		Chromosome& chromosome = population[count].second;
+		// Iterate through the genes and initialize connections.
+		for (int i = 0; i < chromosome.size(); ++i)
+		{
+			Gene& gene = chromosome[i];
+			InitializeIslandConnections(gene.first, gene.second, chromosome);
+		}
+		// Evaluate the fitness of the chromosome before leaving.
+		EvaluateChromosome(population[count]);
+		++count;
+	}
+
+	return true;
+}
+
+void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromosome& chrome)
+{
+	// Obtain the island and some helpful values.
+	Node* island = islands[id];
+	int numConnections = CalcConnectionsFromMask(connection);
+	int numIterations = static_cast<int>(islands.size());
+	// Iterate till the max number of iterations or the island has reached max connections.
+	while (numIterations-- && numConnections < island->value)
+	{
+		// Obtain a random neighbor and associated values.
+		int randNeighbor = static_cast<int>(rand() % island->neighbors.size());
+		Neighbor* nb = island->neighbors[randNeighbor];
+		Chromosome::iterator Iter = find_if(chrome.begin(), chrome.end(),
+			[nb](const Gene& a)
+			{
+				return a.first == nb->neighborNode->nodeID;
+			});
+		Gene* nbGene = nullptr;
+		if (Iter != chrome.end())
+		{
+			nbGene = &(*Iter);
+		}
+		if(nbGene)
+		{
+			// Obtain the open connections.
+			int remainingConnections = island->value - numConnections;
+			if (remainingConnections > 0)
+			{
+				// Calculate how many connections from the current island to the neighbor there can be.
+				int valDiff = nb->neighborNode->value - CalcConnectionsFromMask(nbGene->second) - numConnections;
+				if (valDiff >= 2)
+				{
+					if (remainingConnections >= 2)
+					{
+						// If there's already a double bridge in this direction.
+						if (connection & (1 << static_cast<int>(nb->neighborDirection) << BITMASK_BOUNDARY))
+						{
+							continue;
+						}
+						// If not, add one.
+						connection |= (1 << static_cast<int>(nb->neighborDirection) << BITMASK_BOUNDARY);
+						numConnections += 2;
+						nbGene->second |= (1 << (static_cast<int>(nb->neighborDirection) ^ 1) << BITMASK_BOUNDARY);
+					}
+					else
+					{
+						// If there's already a single bridge in this direction.
+						if (connection & 1 << static_cast<int>(nb->neighborDirection))
+						{
+							continue;
+						}
+						// If not, add one.
+						connection |= 1 << static_cast<int>(nb->neighborDirection);
+						++numConnections;
+						nbGene->second |= 1 << (static_cast<int>(nb->neighborDirection) ^ 1);
+					}
+				}
+				else if (valDiff > 0)
+				{
+					// If there's already a single bridge in this direction.
+					if (connection & 1 << static_cast<int>(nb->neighborDirection))
+					{
+						continue;
+					}
+					// If not, add one.
+					connection |= 1 << static_cast<int>(nb->neighborDirection);
+					++numConnections;
+					nbGene->second |= 1 << (static_cast<int>(nb->neighborDirection) ^ 1);
+				}
+			}
+		}
+	}
+}
+
+void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
+{
+	// Fitness is defined as the completion of all island connections.
+	int numRequiredConnections = 0;
+	int numAcquiredConnections = 0;
+	for (Gene& gene : chrome.second)
+	{
+		numRequiredConnections += islands[gene.first]->value;
+		numAcquiredConnections += CalcConnectionsFromMask(gene.second);
+	}
+
+	chrome.first = static_cast<float>(numAcquiredConnections) / numRequiredConnections;
+}
+
+int HashiBoard::CalcConnectionsFromMask(uint8 connection)
+{
+	// Obtain the mask and other values.
+	uint8 mask = connection;
+	int bitCount = 0;
+	int count = 0;
+	// While the mask is nonzero.
+	while (mask)
+	{
+		// If we are in double bridge territory.
+		if (bitCount < BITMASK_BOUNDARY)
+		{
+			count += mask & 1;
+		}
+		// If we are in single bridge territory.
+		else
+		{
+			count += (mask & 1) * 2;
+		}
+		mask >>= 1;
+		++bitCount;
+	}
+
+	return count;
 }
 
 void HashiBoard::RenderBoard() 
@@ -220,6 +519,8 @@ void HashiBoard::RenderBoard()
 
 	// Swap render target to the member texture.
 	SDL_SetRenderTarget(SDL->GetRenderer(), texture);
+	// Clear the texture.
+	SDL_RenderClear(SDL->GetRenderer());
 	// Set the color to white.
 	SDL_SetRenderDrawColor(SDL->GetRenderer(), 255, 255, 255, 255);
 
