@@ -39,6 +39,11 @@ bool HashiBoard::Initialize(string filePath)
 
 bool HashiBoard::Reset()
 {
+	if (!board.size())
+	{
+		return false;
+	}
+
 	SDL_DestroyTexture(texture);
 	texture = SDL_CreateTexture(SDL->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
 	bLongerWidth = false;
@@ -47,6 +52,7 @@ bool HashiBoard::Reset()
 	board.clear();
 	islands.clear();
 	population.clear();
+	currGen = 0;
 
 	return true;
 }
@@ -328,7 +334,7 @@ bool HashiBoard::Process(Parameters params)
 
 	if (mutationChromes.size())
 	{
-		// PerformMutation(mutationChromes);
+		PerformMutation(mutationChromes);
 	}
 	// Evaluate fitness.
 	for (FitnessChromosome& chrome : population)
@@ -354,11 +360,12 @@ bool HashiBoard::Process(Parameters params)
 	if (population[0].first != bestPerc)
 	{
 		bestPerc = population[0].first;
-		// @TODO: Add csv logic here.
+		outputFile << currGen << "," << bestPerc << endl;
 	}
 	// Ending condition.
 	if (bestPerc >= 1.0f || currGen > params.maxGenerations)
 	{
+		outputFile.close();
 		return false;
 	}
 
@@ -368,7 +375,17 @@ bool HashiBoard::Process(Parameters params)
 bool HashiBoard::InitializePopulation(int populationSize)
 {
 	// Seed the random generator.
-	srand(static_cast<unsigned int>(time(0)));
+	unsigned int seed = static_cast<unsigned int>(time(0));
+	cout << "Seed: " << seed << endl;
+	srand(seed);
+
+	outputFile.open("Output.csv");
+	if (outputFile.is_open())
+	{
+		outputFile << "Seed," << seed << endl;
+		outputFile << "Generation,Solved Perc" << endl;
+	}
+
 	// Create an empty chromosome.
 	Chromosome emptyChrome;
 	for (Node* node : islands)
@@ -720,6 +737,7 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 		}
 
 		FixChromosomeConnections(chromosome);
+		EvaluateChromosome(population[chromeIndex]);
 	}
 }
 
@@ -750,6 +768,8 @@ void HashiBoard::ReduceExcessConnections(uint8& mask, int excessConnections) {
 void HashiBoard::FixChromosomeConnections(Chromosome& chromosome) {
 	// Fix mirroring connections between islands from different parents.
 	FixMirroringConnections(chromosome);
+	// Fix overlapping connections.
+	FixOverlappingConnections(chromosome);
 	// Fix excess connections that violate the island value.
 	FixExcessConnections(chromosome);
 }
@@ -817,6 +837,11 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 			++bitCount;
 		}
 	}
+}
+
+void HashiBoard::FixOverlappingConnections(Chromosome& chromosome)
+{
+	
 }
 
 void HashiBoard::FixExcessConnections(Chromosome& chromosome)

@@ -176,6 +176,11 @@ private:
 	/// </summary>
 	float bestPerc;
 
+	/// <summary>
+	/// Outpus csv of the algorithm.
+	/// </summary>
+	ofstream outputFile;
+
 	// Useful typedef for less typing.
 	typedef uint8_t uint8;
 	// A gene is a pair of integer and uint8.
@@ -321,6 +326,8 @@ private:
 	/// </summary>
 	/// <param name="chromosome">Chromosome to fix.</param>
 	void FixMirroringConnections(Chromosome& chromosome);
+
+	void FixOverlappingConnections(Chromosome& chromosome);
 
 	/// <summary>
 	/// Fixes the excess connections that are present.
