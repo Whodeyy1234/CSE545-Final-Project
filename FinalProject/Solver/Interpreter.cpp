@@ -236,8 +236,7 @@ bool HashiBoard::Update(Parameters params)
 		});
 	Chromosome& chrome = (*Iter).second;
 	// Iterate through the genes to populate the board.
-	for (Gene& gene : chrome)
-	{
+	for (Gene& gene : chrome) {
 		uint8 mask = gene.second;
 		Node* node = islands[gene.first];
 
@@ -245,34 +244,32 @@ bool HashiBoard::Update(Parameters params)
 		int y = node->coords[0];
 
 		int bitCount = 0;
-		while (mask)
-		{
-			if (mask & 1)
-			{
-				switch (bitCount % BITMASK_BOUNDARY)
-				{
-				case 0:
-					for (int index = x - 1; board[y][index] <= 0; --index)
-					{
-						board[y][index] = bitCount < BITMASK_BOUNDARY ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
+		while (mask) {
+			if (mask & 1) {
+				switch (bitCount % BITMASK_BOUNDARY) {
+				case 0: // Left
+					for (int index = x - 1; board[y][index] <= 0; --index) {
+						// Prevent mixing bridge types
+						if (board[y][index] != 0 && board[y][index] != HORI_SINGLE_BRIDGE && board[y][index] != HORI_DOUBLE_BRIDGE) break;
+						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
 					}
 					break;
-				case 1:
-					for (int index = x + 1; board[y][index] <= 0; ++index)
-					{
-						board[y][index] = bitCount < BITMASK_BOUNDARY ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
+				case 1: // Right
+					for (int index = x + 1; board[y][index] <= 0; ++index) {
+						if (board[y][index] != 0 && board[y][index] != HORI_SINGLE_BRIDGE && board[y][index] != HORI_DOUBLE_BRIDGE) break;
+						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
 					}
 					break;
-				case 2:
-					for (int index = y + 1; board[index][x] <= 0; ++index)
-					{
-						board[index][x] = bitCount < BITMASK_BOUNDARY ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
+				case 2: // Down
+					for (int index = y + 1; board[index][x] <= 0; ++index) {
+						if (board[index][x] != 0 && board[index][x] != VERT_SINGLE_BRIDGE && board[index][x] != VERT_DOUBLE_BRIDGE) break;
+						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
 					}
 					break;
-				case 3:
-					for (int index = y - 1; board[index][x] <= 0; --index)
-					{
-						board[y - 1][x] = bitCount < BITMASK_BOUNDARY ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
+				case 3: // Up
+					for (int index = y - 1; board[index][x] <= 0; --index) {
+						if (board[index][x] != 0 && board[index][x] != VERT_SINGLE_BRIDGE && board[index][x] != VERT_DOUBLE_BRIDGE) break;
+						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
 					}
 					break;
 				default:
@@ -323,12 +320,12 @@ bool HashiBoard::Process(Parameters params)
 	// Performing crossovers and mutations.
 	if (crossoverChromes.size())
 	{
-		// @TODO: Put crossover logic here.
+		PerformCrossover(crossoverChromes, params.crossoverProb);
 	}
 
 	if (mutationChromes.size())
 	{
-		// @TODO: Put mutation logic here.
+		// PerformMutation(mutationChromes, params.mutationProb);
 	}
 	// Evaluate fitness.
 	for (FitnessChromosome& chrome : population)
@@ -650,4 +647,163 @@ void HashiBoard::RenderBridge(const int Type, const int CenterX, const int Cente
 	default:
 		break;
 	}
+}
+
+void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes, float crossoverProb) {
+	for (const auto& pair : crossoverChromes) {
+		if (pair.second == -1) continue;
+
+		// Generate a random float between 0 and 1
+		float randomValue = static_cast<float>(rand()) / RAND_MAX;
+
+		// Perform crossover based on crossover probability
+		if (randomValue < crossoverProb) {
+			// Get parent chromosomes
+			Chromosome& parent1 = population[pair.first].second;
+			Chromosome& parent2 = population[pair.second].second;
+
+			// Create two child chromosomes by crossover
+			Chromosome child1, child2;
+			int numGenes = parent1.size();
+			int crossoverPoint = rand() % numGenes;
+
+			// First child (parent1's genes before crossover point, then parent2's)
+			for (int i = 0; i < numGenes; ++i) {
+				if (i < crossoverPoint) {
+					child1.push_back(parent1[i]);
+					child2.push_back(parent2[i]);
+				}
+				else {
+					child1.push_back(parent2[i]);
+					child2.push_back(parent1[i]);
+				}
+			}
+
+			// Fix chromosomes to ensure they respect constraints
+			FixChromosomeConnections(child1);
+			FixChromosomeConnections(child2);
+
+			// Replace both parents with the new children
+			population[pair.first] = make_pair(0.0f, child1);
+			population[pair.second] = make_pair(0.0f, child2);
+		}
+	}
+}
+
+void HashiBoard::PerformMutation(const vector<int>& mutationChromes, float mutationProb) {
+	for (int chromeIndex : mutationChromes) {
+		Chromosome& chromosome = population[chromeIndex].second;
+
+		// Randomly mutate genes in the chromosome
+		for (Gene& gene : chromosome) {
+			if (static_cast<float>(rand()) / RAND_MAX < mutationProb) {
+				uint8& connection = gene.second;
+				int bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
+				connection ^= (1 << bitToToggle);
+
+				// Also toggle the corresponding bit in the neighbor's gene
+				Node* node = islands[gene.first];
+				for (Neighbor* neighbor : node->neighbors) {
+					if ((bitToToggle % BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection)) ||
+						(bitToToggle % BITMASK_BOUNDARY + BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection))) {
+						Node* neighborNode = neighbor->neighborNode;
+						for (Gene& neighborGene : chromosome) {
+							if (neighborGene.first == neighborNode->nodeID) {
+								neighborGene.second ^= (1 << ((bitToToggle + BITMASK_BOUNDARY) % (2 * BITMASK_BOUNDARY)));
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		FixChromosomeConnections(chromosome);
+	}
+}
+
+void HashiBoard::ValidateConnections(Chromosome& chrome) {
+	for (Gene& gene : chrome) {
+		Node* node = islands[gene.first];
+		int maxConnections = node->value; // max allowed connections for this node
+		int currentConnections = CalcConnectionsFromMask(gene.second);
+
+		if (currentConnections > maxConnections) {
+			// Reduce excess connections by clearing bits in the mask
+			ReduceExcessConnections(gene.second, currentConnections - maxConnections);
+		}
+	}
+}
+
+void HashiBoard::ReduceExcessConnections(uint8& mask, int excessConnections) {
+	int bitCount = 0;
+	while (excessConnections > 0 && bitCount < BITMASK_BOUNDARY * 2) {
+		if (mask & (1 << bitCount)) { // Check if the bit is set
+			mask &= ~(1 << bitCount); // Clear the bit
+			excessConnections--;
+		}
+		bitCount++;
+	}
+}
+
+void HashiBoard::FixChromosomeConnections(Chromosome& chromosome) {
+	for (Gene& gene : chromosome) {
+		Node* node = islands[gene.first];
+		uint8& mask = gene.second;
+
+		// Ensure the number of connections does not exceed the node's value
+		while (CalcConnectionsFromMask(mask) > node->value) {
+			// Randomly select a bit to turn off to reduce the number of connections
+			int bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
+			mask &= ~(1 << bitToTurnOff);
+
+			// Also turn off the corresponding bit in the neighbor's gene
+			for (Neighbor* neighbor : node->neighbors) {
+				if ((bitToTurnOff % BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection)) ||
+					(bitToTurnOff % BITMASK_BOUNDARY + BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection))) {
+					Node* neighborNode = neighbor->neighborNode;
+					for (Gene& neighborGene : chromosome) {
+						if (neighborGene.first == neighborNode->nodeID) {
+							neighborGene.second &= ~(1 << ((bitToTurnOff + BITMASK_BOUNDARY) % (2 * BITMASK_BOUNDARY)));
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
+////////////////////////////////////////////////////////////
+// For debuggin purposes for now, I'll delete this later. 
+// Prints every single iteration to see the changes
+////////////////////////////////////////////////////////////
+
+void HashiBoard::PrintBoard() const {
+	for (const auto& row : board) {
+		for (const int cell : row) {
+			if (cell > 0) {
+				int bridgeCount = 0;
+				for (int i = 0; i < BITMASK_BOUNDARY * 2; ++i) {
+					if (cell & (1 << i)) {
+						bridgeCount += (i < BITMASK_BOUNDARY) ? 2 : 1; 
+					}
+				}
+				cout << cell << "(" << bridgeCount << ") "; // Print island with bridge count to see where numbers are differing
+			}
+			else {
+				// Print bridges
+				switch (cell) {
+				case HORI_SINGLE_BRIDGE: cout << "- "; break;
+				case HORI_DOUBLE_BRIDGE: cout << "= "; break;
+				case VERT_SINGLE_BRIDGE: cout << "| "; break;
+				case VERT_DOUBLE_BRIDGE: cout << "|| "; break;
+				default: cout << ". ";
+				}
+			}
+		}
+		cout << endl;
+	}
+	cout << endl;
 }
