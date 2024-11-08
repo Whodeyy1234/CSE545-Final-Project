@@ -36,6 +36,7 @@ enum class Direction : int
 /// </summary>
 struct Parameters
 {
+	unsigned int seed;
 	int populationSize;
 	float crossoverProb;
 	float mutationProb;
@@ -113,7 +114,7 @@ public:
 	/// <summary>
 	/// Default constructor to help with initialization.
 	/// </summary>
-	HashiBoard() : bLongerWidth(false), boardSizeX(0), boardSizeY(0), currGen(0), bestPerc(0.f)
+	HashiBoard() : bLongerWidth(false), boardSizeX(0), boardSizeY(0), currGen(0), bestPerc(0.f), seed(time(0))
 	{
 		texture = SDL_CreateTexture(SDL->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
 	}
@@ -175,6 +176,11 @@ private:
 	/// Best fit percentage of a chromosome.
 	/// </summary>
 	float bestPerc;
+
+	/// <summary>
+	/// Seed for the random generator.
+	/// </summary>
+	unsigned int seed;
 
 	/// <summary>
 	/// Outpus csv of the algorithm.
@@ -256,8 +262,9 @@ private:
 	/// Initializes the population for the algorithm.
 	/// </summary>
 	/// <param name="populationSize">Size of the requested population.</param>
+	/// <param name="seed">Seed to see the random generator with.</param>
 	/// <returns>Whether or not the population was created successfully.</returns>
-	bool InitializePopulation(int populationSize);
+	bool InitializePopulation(int populationSize, unsigned int seed);
 
 	/// <summary>
 	/// Initializes an island specified by the id parameter.
@@ -314,6 +321,18 @@ private:
 	/// </summary>
 	/// <param name="mutationChromes"> Chromosomes to mutate </param>
 	void PerformMutation(const vector<int>& mutationChromes);
+
+	/// <summary>
+	/// Clears the bridges on the board to prepare for rendering.
+	/// </summary>
+	void ClearBridgesOnBoard();
+
+	/// <summary>
+	/// Checks if the passed chromosome is unique to the population.
+	/// </summary>
+	/// <param name="chromosome">Chromosome to check.</param>
+	/// <returns>Whether or not the chromosome is unique.</returns>
+	bool CheckIfUnique(const Chromosome& chromosome);
 
 	/// <summary>
 	/// Fixes the chromosome connection errors that are present.
