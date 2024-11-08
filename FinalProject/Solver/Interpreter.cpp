@@ -236,7 +236,8 @@ bool HashiBoard::Update(Parameters params)
 		});
 	Chromosome& chrome = (*Iter).second;
 	// Iterate through the genes to populate the board.
-	for (Gene& gene : chrome) {
+	for (Gene& gene : chrome) 
+	{
 		uint8 mask = gene.second;
 		Node* node = islands[gene.first];
 
@@ -244,31 +245,33 @@ bool HashiBoard::Update(Parameters params)
 		int y = node->coords[0];
 
 		int bitCount = 0;
-		while (mask) {
-			if (mask & 1) {
-				switch (bitCount % BITMASK_BOUNDARY) {
+		while (mask) 
+		{
+			if (mask & 1) 
+			{
+				switch (bitCount % BITMASK_BOUNDARY) 
+				{
 				case 0: // Left
-					for (int index = x - 1; board[y][index] <= 0; --index) {
-						// Prevent mixing bridge types
-						if (board[y][index] != 0 && board[y][index] != HORI_SINGLE_BRIDGE && board[y][index] != HORI_DOUBLE_BRIDGE) break;
+					for (int index = x - 1; board[y][index] <= 0; --index) 
+					{
 						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
 					}
 					break;
 				case 1: // Right
-					for (int index = x + 1; board[y][index] <= 0; ++index) {
-						if (board[y][index] != 0 && board[y][index] != HORI_SINGLE_BRIDGE && board[y][index] != HORI_DOUBLE_BRIDGE) break;
+					for (int index = x + 1; board[y][index] <= 0; ++index) 
+					{
 						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
 					}
 					break;
 				case 2: // Down
-					for (int index = y + 1; board[index][x] <= 0; ++index) {
-						if (board[index][x] != 0 && board[index][x] != VERT_SINGLE_BRIDGE && board[index][x] != VERT_DOUBLE_BRIDGE) break;
+					for (int index = y + 1; board[index][x] <= 0; ++index) 
+					{
 						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
 					}
 					break;
 				case 3: // Up
-					for (int index = y - 1; board[index][x] <= 0; --index) {
-						if (board[index][x] != 0 && board[index][x] != VERT_SINGLE_BRIDGE && board[index][x] != VERT_DOUBLE_BRIDGE) break;
+					for (int index = y - 1; board[index][x] <= 0; --index) 
+					{
 						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
 					}
 					break;
@@ -320,12 +323,12 @@ bool HashiBoard::Process(Parameters params)
 	// Performing crossovers and mutations.
 	if (crossoverChromes.size())
 	{
-		PerformCrossover(crossoverChromes, params.crossoverProb);
+		PerformCrossover(crossoverChromes);
 	}
 
 	if (mutationChromes.size())
 	{
-		// PerformMutation(mutationChromes, params.mutationProb);
+		// PerformMutation(mutationChromes);
 	}
 	// Evaluate fitness.
 	for (FitnessChromosome& chrome : population)
@@ -649,69 +652,67 @@ void HashiBoard::RenderBridge(const int Type, const int CenterX, const int Cente
 	}
 }
 
-void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes, float crossoverProb) {
-	for (const auto& pair : crossoverChromes) {
+void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes) 
+{
+	for (const auto& pair : crossoverChromes) 
+	{
 		if (pair.second == -1) continue;
 
-		// Generate a random float between 0 and 1
-		float randomValue = static_cast<float>(rand()) / RAND_MAX;
+		// Get parent chromosomes
+		Chromosome& parent1 = population[pair.first].second;
+		Chromosome& parent2 = population[pair.second].second;
 
-		// Perform crossover based on crossover probability
-		if (randomValue < crossoverProb) {
-			// Get parent chromosomes
-			Chromosome& parent1 = population[pair.first].second;
-			Chromosome& parent2 = population[pair.second].second;
+		// Create two child chromosomes by crossover
+		Chromosome child1, child2;
+		int numGenes = static_cast<int>(parent1.size());
+		int crossoverPoint = rand() % numGenes;
 
-			// Create two child chromosomes by crossover
-			Chromosome child1, child2;
-			int numGenes = parent1.size();
-			int crossoverPoint = rand() % numGenes;
-
-			// First child (parent1's genes before crossover point, then parent2's)
-			for (int i = 0; i < numGenes; ++i) {
-				if (i < crossoverPoint) {
-					child1.push_back(parent1[i]);
-					child2.push_back(parent2[i]);
-				}
-				else {
-					child1.push_back(parent2[i]);
-					child2.push_back(parent1[i]);
-				}
+		// First child (parent1's genes before crossover point, then parent2's)
+		for (int i = 0; i < numGenes; ++i) {
+			if (i < crossoverPoint) {
+				child1.push_back(parent1[i]);
+				child2.push_back(parent2[i]);
 			}
-
-			// Fix chromosomes to ensure they respect constraints
-			FixChromosomeConnections(child1);
-			FixChromosomeConnections(child2);
-
-			// Replace both parents with the new children
-			population[pair.first] = make_pair(0.0f, child1);
-			population[pair.second] = make_pair(0.0f, child2);
+			else {
+				child1.push_back(parent2[i]);
+				child2.push_back(parent1[i]);
+			}
 		}
+
+		// Fix chromosomes to ensure they respect constraints
+		FixChromosomeConnections(child1);
+		FixChromosomeConnections(child2);
+
+		// Replace both parents with the new children
+		FitnessChromosome fChild1 = { 0.f, child1 };
+		FitnessChromosome fChild2 = { 0.f, child2 };
+		EvaluateChromosome(fChild1);
+		EvaluateChromosome(fChild2);
+		population.push_back(fChild1);
+		population.push_back(fChild2);
 	}
 }
 
-void HashiBoard::PerformMutation(const vector<int>& mutationChromes, float mutationProb) {
+void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 	for (int chromeIndex : mutationChromes) {
 		Chromosome& chromosome = population[chromeIndex].second;
 
 		// Randomly mutate genes in the chromosome
 		for (Gene& gene : chromosome) {
-			if (static_cast<float>(rand()) / RAND_MAX < mutationProb) {
-				uint8& connection = gene.second;
-				int bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
-				connection ^= (1 << bitToToggle);
+			uint8& connection = gene.second;
+			int bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
+			connection ^= (1 << bitToToggle);
 
-				// Also toggle the corresponding bit in the neighbor's gene
-				Node* node = islands[gene.first];
-				for (Neighbor* neighbor : node->neighbors) {
-					if ((bitToToggle % BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection)) ||
-						(bitToToggle % BITMASK_BOUNDARY + BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection))) {
-						Node* neighborNode = neighbor->neighborNode;
-						for (Gene& neighborGene : chromosome) {
-							if (neighborGene.first == neighborNode->nodeID) {
-								neighborGene.second ^= (1 << ((bitToToggle + BITMASK_BOUNDARY) % (2 * BITMASK_BOUNDARY)));
-								break;
-							}
+			// Also toggle the corresponding bit in the neighbor's gene
+			Node* node = islands[gene.first];
+			for (Neighbor* neighbor : node->neighbors) {
+				if ((bitToToggle % BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection)) ||
+					(bitToToggle % BITMASK_BOUNDARY + BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection))) {
+					Node* neighborNode = neighbor->neighborNode;
+					for (Gene& neighborGene : chromosome) {
+						if (neighborGene.first == neighborNode->nodeID) {
+							neighborGene.second ^= (1 << ((bitToToggle + BITMASK_BOUNDARY) % (2 * BITMASK_BOUNDARY)));
+							break;
 						}
 					}
 				}
@@ -747,27 +748,128 @@ void HashiBoard::ReduceExcessConnections(uint8& mask, int excessConnections) {
 }
 
 void HashiBoard::FixChromosomeConnections(Chromosome& chromosome) {
-	for (Gene& gene : chromosome) {
+	// Fix mirroring connections between islands from different parents.
+	FixMirroringConnections(chromosome);
+	// Fix excess connections that violate the island value.
+	FixExcessConnections(chromosome);
+}
+
+void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
+{
+	for (Gene& gene : chromosome)
+	{
 		Node* node = islands[gene.first];
 		uint8& mask = gene.second;
 
-		// Ensure the number of connections does not exceed the node's value
-		while (CalcConnectionsFromMask(mask) > node->value) {
-			// Randomly select a bit to turn off to reduce the number of connections
-			int bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
-			mask &= ~(1 << bitToTurnOff);
+		uint8 iterMask = mask;
+		int bitCount = 0;
+		// Iterate through the mask.
+		for (int i = 0; i < 2 * BITMASK_BOUNDARY && iterMask; ++i)
+		{
+			if (iterMask & 1)
+			{
+				// Obtain the neighbor.
+				Direction dir = static_cast<Direction>(bitCount % BITMASK_BOUNDARY);
+				Neighbor* nb = nullptr;
+				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
+					[&dir](const Neighbor* nb)
+					{
+						return nb->neighborDirection == dir;
+					});
+				if (iter != node->neighbors.end())
+				{
+					nb = *iter;
+				}
 
-			// Also turn off the corresponding bit in the neighbor's gene
-			for (Neighbor* neighbor : node->neighbors) {
-				if ((bitToTurnOff % BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection)) ||
-					(bitToTurnOff % BITMASK_BOUNDARY + BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection))) {
-					Node* neighborNode = neighbor->neighborNode;
-					for (Gene& neighborGene : chromosome) {
-						if (neighborGene.first == neighborNode->nodeID) {
-							neighborGene.second &= ~(1 << ((bitToTurnOff + BITMASK_BOUNDARY) % (2 * BITMASK_BOUNDARY)));
-							break;
+				if (nb)
+					// Obtain the gene.
+				{
+					int nbId = nb->neighborNode->nodeID;
+					Gene* nbGene = nullptr;
+					Chromosome::iterator citer = find_if(chromosome.begin(), chromosome.end(),
+						[&nbId](const Gene& g)
+						{
+							return g.first == nbId;
+						});
+					if (citer != chromosome.end())
+					{
+						nbGene = &(*citer);
+					}
+
+					if (nbGene)
+					{
+						// Check to see if the mirrored bit is set. If not, set it but clear the single or double for the opposite connection.
+						int numNbCon = (bitCount > BITMASK_BOUNDARY ? 2 : 1);
+						int shift = ((static_cast<int>(dir) ^ 1) + (numNbCon == 2 ? BITMASK_BOUNDARY : 0));
+						if (!((nbGene->second >> shift) & 1))
+						{
+							if (nbGene->second >> (shift + (numNbCon == 2 ? -BITMASK_BOUNDARY : BITMASK_BOUNDARY)))
+							{
+								nbGene->second &= ~(1 << (shift + (numNbCon == 2 ? -BITMASK_BOUNDARY : BITMASK_BOUNDARY)));
+							}
+							nbGene->second |= 1 << shift;
 						}
 					}
+				}
+			}
+
+			iterMask >>= 1;
+			++bitCount;
+		}
+	}
+}
+
+void HashiBoard::FixExcessConnections(Chromosome& chromosome)
+{
+	for (Gene& gene : chromosome)
+	{
+		Node* node = islands[gene.first];
+		uint8& mask = gene.second;
+
+		// Ensure the number of connections does not exceed the node's value.
+		while (CalcConnectionsFromMask(mask) > node->value)
+		{
+			// Randomly select a bit to turn off to reduce the number of connections.
+			int bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
+			// Ensure the bit to turn off is set.
+			while (!(mask & (1 << bitToTurnOff)))
+			{
+				bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
+			}
+			mask &= ~(1 << bitToTurnOff);
+
+			// Obtain the neighbor.
+			Neighbor* nb = nullptr;
+			vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
+				[&bitToTurnOff](const Neighbor* nb)
+				{
+					Direction dir = static_cast<Direction>(bitToTurnOff % BITMASK_BOUNDARY);
+					return nb->neighborDirection == dir;
+				});
+			if (iter != node->neighbors.end())
+			{
+				nb = *iter;
+			}
+
+			if (nb)
+			{
+				// Obtain the neighbor gene.
+				int nbId = nb->neighborNode->nodeID;
+				Gene* nbGene = nullptr;
+				Chromosome::iterator citer = find_if(chromosome.begin(), chromosome.end(),
+					[&nbId](const Gene& g)
+					{
+						return g.first == nbId;
+					});
+				if (citer != chromosome.end())
+				{
+					nbGene = &(*citer);
+				}
+
+				if (nbGene)
+				{
+					// Clear the bit.
+					nbGene->second &= ~(1 << (bitToTurnOff < BITMASK_BOUNDARY ? (bitToTurnOff % BITMASK_BOUNDARY) ^ 1 : (bitToTurnOff % BITMASK_BOUNDARY) ^ 1 << BITMASK_BOUNDARY));
 				}
 			}
 		}
