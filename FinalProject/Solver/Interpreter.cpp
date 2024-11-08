@@ -229,6 +229,20 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 	return nullptr;
 }
 
+void HashiBoard::ClearBridgesOnBoard()
+{
+	for (int y = 0; y < board.size(); ++y)
+	{
+		for (int x = 0; x < board[0].size(); ++x)
+		{
+			if (board[y][x] < 0)
+			{
+				board[y][x] = 0;
+			}
+		}
+	}
+}
+
 bool HashiBoard::Update(Parameters params)
 {
 	// Process the algorithm.
@@ -241,6 +255,9 @@ bool HashiBoard::Update(Parameters params)
 			return a.first == bestPerc;
 		});
 	Chromosome& chrome = (*Iter).second;
+
+	ClearBridgesOnBoard();
+
 	// Iterate through the genes to populate the board.
 	for (Gene& gene : chrome) 
 	{
@@ -298,7 +315,7 @@ bool HashiBoard::Process(Parameters params)
 	// Initialization.
 	if (!population.size())
 	{
-		InitializePopulation(params.populationSize);
+		InitializePopulation(params.populationSize, params.seed);
 	}
 	++currGen;
 	vector<pair<int, int>> crossoverChromes;
@@ -372,10 +389,9 @@ bool HashiBoard::Process(Parameters params)
 	return true;
 }
 
-bool HashiBoard::InitializePopulation(int populationSize)
+bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 {
 	// Seed the random generator.
-	unsigned int seed = static_cast<unsigned int>(time(0));
 	cout << "Seed: " << seed << endl;
 	srand(seed);
 
@@ -700,13 +716,19 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 		FixChromosomeConnections(child1);
 		FixChromosomeConnections(child2);
 
-		// Replace both parents with the new children
-		FitnessChromosome fChild1 = { 0.f, child1 };
-		FitnessChromosome fChild2 = { 0.f, child2 };
-		EvaluateChromosome(fChild1);
-		EvaluateChromosome(fChild2);
-		population.push_back(fChild1);
-		population.push_back(fChild2);
+		if (CheckIfUnique(child1))
+		{
+			FitnessChromosome fChild1 = { 0.f, child1 };
+			EvaluateChromosome(fChild1);
+			population.push_back(fChild1);
+		}
+
+		if (CheckIfUnique(child2))
+		{
+			FitnessChromosome fChild2 = { 0.f, child2 };
+			EvaluateChromosome(fChild2);
+			population.push_back(fChild2);
+		}
 	}
 }
 
@@ -741,6 +763,31 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 	}
 }
 
+bool HashiBoard::CheckIfUnique(const Chromosome& chromosome)
+{
+	for (const FitnessChromosome& fChrome : population)
+	{
+		int maxDupes = static_cast<int>(chromosome.size());
+		const Chromosome& refChrome = fChrome.second;
+		for (int i = 0; i < chromosome.size(); ++i)
+		{
+			const Gene& gene = chromosome[i];
+			const Gene& refGene = refChrome[i];
+			if (gene.second == refGene.second)
+			{
+				--maxDupes;
+			}
+		}
+
+		if (!maxDupes)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
 void HashiBoard::ValidateConnections(Chromosome& chrome) {
 	for (Gene& gene : chrome) {
 		Node* node = islands[gene.first];
@@ -765,7 +812,8 @@ void HashiBoard::ReduceExcessConnections(uint8& mask, int excessConnections) {
 	}
 }
 
-void HashiBoard::FixChromosomeConnections(Chromosome& chromosome) {
+void HashiBoard::FixChromosomeConnections(Chromosome& chromosome) 
+{
 	// Fix mirroring connections between islands from different parents.
 	FixMirroringConnections(chromosome);
 	// Fix overlapping connections.
@@ -819,7 +867,7 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 					if (nbGene)
 					{
 						// Check to see if the mirrored bit is set. If not, set it but clear the single or double for the opposite connection.
-						int numNbCon = (bitCount > BITMASK_BOUNDARY ? 2 : 1);
+						int numNbCon = (bitCount >= BITMASK_BOUNDARY ? 2 : 1);
 						int shift = ((static_cast<int>(dir) ^ 1) + (numNbCon == 2 ? BITMASK_BOUNDARY : 0));
 						if (!((nbGene->second >> shift) & 1))
 						{

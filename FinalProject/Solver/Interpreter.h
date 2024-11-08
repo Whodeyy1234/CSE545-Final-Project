@@ -36,6 +36,7 @@ enum class Direction : int
 /// </summary>
 struct Parameters
 {
+	unsigned int seed;
 	int populationSize;
 	float crossoverProb;
 	float mutationProb;
@@ -256,8 +257,9 @@ private:
 	/// Initializes the population for the algorithm.
 	/// </summary>
 	/// <param name="populationSize">Size of the requested population.</param>
+	/// <param name="seed">Seed to see the random generator with.</param>
 	/// <returns>Whether or not the population was created successfully.</returns>
-	bool InitializePopulation(int populationSize);
+	bool InitializePopulation(int populationSize, unsigned int seed);
 
 	/// <summary>
 	/// Initializes an island specified by the id parameter.
@@ -314,6 +316,18 @@ private:
 	/// </summary>
 	/// <param name="mutationChromes"> Chromosomes to mutate </param>
 	void PerformMutation(const vector<int>& mutationChromes);
+
+	/// <summary>
+	/// Clears the bridges on the board to prepare for rendering.
+	/// </summary>
+	void ClearBridgesOnBoard();
+
+	/// <summary>
+	/// Checks if the passed chromosome is unique to the population.
+	/// </summary>
+	/// <param name="chromosome">Chromosome to check.</param>
+	/// <returns>Whether or not the chromosome is unique.</returns>
+	bool CheckIfUnique(const Chromosome& chromosome);
 
 	/// <summary>
 	/// Fixes the chromosome connection errors that are present.

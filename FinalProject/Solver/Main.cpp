@@ -33,6 +33,7 @@ int main(int argc, char* argv[])
 	// ImGui Variables - Start ===============
 	string filePath = "";				// File path to the board.
 	// Algorithm Parameters - Start ==========
+	int seed = time(0);
 	int populationSize = 200;			// Size of the population.
 	float crossoverProb = 0.7f;			// Probability a crossover occurs.
 	float mutationProb = 0.05f;			// Probability a mutation occurs.
@@ -78,6 +79,7 @@ int main(int argc, char* argv[])
 
 			if (ImGui::CollapsingHeader("Genetic Parameters", ImGuiTreeNodeFlags_DefaultOpen))
 			{
+				ImGui::InputInt("Seed", &seed);
 				ImGui::InputInt("Population Size", &populationSize);
 				ImGui::InputFloat("Crossover Probability", &crossoverProb);
 				ImGui::InputFloat("Mutation Probability", &mutationProb);
@@ -92,7 +94,7 @@ int main(int argc, char* argv[])
 
 			if (ImGui::Button("Run"))
 			{
-				params = { populationSize, crossoverProb, mutationProb, maxGenerations, bWithWisdom, gensPerWisdom, elitismPerc };
+				params = { static_cast<unsigned int>(seed), populationSize, crossoverProb, mutationProb, maxGenerations, bWithWisdom, gensPerWisdom, elitismPerc };
 				bAlgRunning = true;
 			}
 
