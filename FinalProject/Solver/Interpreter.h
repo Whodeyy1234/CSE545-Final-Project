@@ -296,4 +296,37 @@ private:
 	/// <param name="CenterX">The center of the island in pixels x.</param>
 	/// <param name="CenterY">The center of the island in pixels y.</param>
 	void RenderBridge(const int Type, const int CenterX, const int CenterY);
+
+	
+	/// <summary>
+	/// Perform the crossover using single point crossover
+	/// </summary>
+	/// <param name="crossoverChromes"> The pair of </param>
+	/// <param name="crossoverProb" Probability of performing crossover </param>
+	void PerformCrossover(const vector<pair<int, int>>& crossoverChromes, float crossoverProb);
+
+	/// <summary>
+	/// Perform the mutation: Flipping a bit randomly in the bridge connections
+	/// Essentially adds or removes connections between two islands
+	/// </summary>
+	/// <param name="mutationChromes"> Chromosomes to mutate </param>
+	/// <param name="mutationProb"> Probability of performing mutation </param>
+	void PerformMutation(const vector<int>& mutationChromes, float mutationProb);
+
+	//------------------------
+	// none of these post processing methods seem to work ;-;
+
+	void FixChromosomeConnections(Chromosome& chromosome);
+
+	void ReduceExcessConnections(uint8& mask, int excessConnections);
+
+	void ValidateConnections(Chromosome& chrome);
+
+	//------------------------
+
+	/// <summary>
+	/// Temporary Helper Function to print the board after every new generation 
+	/// For debugging purposes - to be removed
+	/// </summary>
+	void PrintBoard() const;
 };
