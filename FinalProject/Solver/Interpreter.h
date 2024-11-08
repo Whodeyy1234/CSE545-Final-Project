@@ -114,7 +114,7 @@ public:
 	/// <summary>
 	/// Default constructor to help with initialization.
 	/// </summary>
-	HashiBoard() : bLongerWidth(false), boardSizeX(0), boardSizeY(0), currGen(0), bestPerc(0.f), seed(time(0))
+	HashiBoard() : bLongerWidth(false), boardSizeX(0), boardSizeY(0), currGen(0), bestPerc(0.f)
 	{
 		texture = SDL_CreateTexture(SDL->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
 	}
@@ -176,11 +176,6 @@ private:
 	/// Best fit percentage of a chromosome.
 	/// </summary>
 	float bestPerc;
-
-	/// <summary>
-	/// Seed for the random generator.
-	/// </summary>
-	unsigned int seed;
 
 	/// <summary>
 	/// Outpus csv of the algorithm.
