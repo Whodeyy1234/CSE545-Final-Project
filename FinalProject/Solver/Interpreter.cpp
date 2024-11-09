@@ -422,6 +422,7 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 			Gene& gene = chromosome[i];
 			InitializeIslandConnections(gene.first, gene.second, chromosome);
 		}
+		FixChromosomeConnections(chromosome);
 		// Evaluate the fitness of the chromosome before leaving.
 		EvaluateChromosome(population[count]);
 		++count;
