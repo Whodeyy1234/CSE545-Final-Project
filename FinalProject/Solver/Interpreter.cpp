@@ -172,6 +172,10 @@ void HashiBoard::CreateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors)
 	Node* neighborNode = nullptr;
 	if (bShouldClearNeighbors)
 	{
+		for (Neighbor* nb : node->neighbors)
+		{
+			delete nb;
+		}
 		node->neighbors.clear();
 	}
 	//We need to traverse in each direction in the board in order to find a hit.
@@ -385,7 +389,13 @@ bool HashiBoard::Process(Parameters params)
 	// Perform Wisdom of Crowds if enabled.
 	if (params.bWithWisdom && currGen % params.gensPerWisdom == 0)
 	{
-		// @TODO: Put wisdom of crowds logic here.
+		PerformWisdomOfCrowds(params.elitismPerc);
+
+		sort(population.begin(), population.end(),
+			[this](const FitnessChromosome& a, const FitnessChromosome& b)
+			{
+				return a.first > b.first;
+			});
 	}
 	// Outputting to csv if new best parent.
 	if (population[0].first != bestPerc)
@@ -1007,6 +1017,171 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 		FixChromosomeConnections(chromosome);
 		EvaluateChromosome(population[chromeIndex]);
 	}
+}
+
+void HashiBoard::PerformWisdomOfCrowds(float elitismPerc)
+{
+	// Map to hold the amount of connections per node.
+	map<int, vector<WoCConnection>> connectionsMap;
+	
+	// Iterate through each chromosome.
+	int count = 0;
+	for (FitnessChromosome& fchrome : population)
+	{
+		if (count > population.size() * elitismPerc)
+		{
+			break;
+		}
+
+		Chromosome& chrome = fchrome.second;
+		for (int i = 1; i < chrome.size(); ++i)
+		{
+			// Obtain the gene and the connection.
+			const Gene& gene = chrome[i - 1];
+			vector<WoCConnection>& currConnection = connectionsMap[gene.first];
+			
+			// Obtain the node and mask and iterate through said mask.
+			Node* node = islands[gene.first];
+			uint8 mask = gene.second;
+			int bitCount = 0;
+			for (mask; mask; mask >>= 1)
+			{
+				if (mask & 1)
+				{
+					// Obtain the direction and neighbor.
+					Direction dir = static_cast<Direction>(bitCount % BITMASK_BOUNDARY);
+
+					Node* nb = nullptr;
+					vector<Neighbor*>::iterator nbiter = find_if(node->neighbors.begin(), node->neighbors.end(),
+						[&dir](const Neighbor* n)
+						{
+							return n->neighborDirection == dir;
+						});
+					if (nbiter != node->neighbors.end())
+					{
+						nb = (*nbiter)->neighborNode;
+					}
+
+					if (nb)
+					{
+						// Obtain the actual connection.
+						vector<WoCConnection>::iterator wociter = find_if(currConnection.begin(), currConnection.end(),
+							[&nb](const WoCConnection& wocc)
+							{
+								return wocc.islandID == nb->nodeID;
+							});
+						if (wociter != currConnection.end())
+						{
+							// Increment if the connection is found.
+							++(*wociter).count;
+						}
+						else
+						{
+							// Create a new one if not.
+							currConnection.push_back({ nb->nodeID, bitCount < BITMASK_BOUNDARY, 1 });
+						}
+					}
+				}
+				++bitCount;
+			}
+		}
+	}
+
+	// Check to see the map filled.
+	if (!connectionsMap.size())
+	{
+		return;
+	}
+
+	// Sort the map.
+	for (pair<const int, vector<WoCConnection>>& connections : connectionsMap)
+	{
+		sort(connections.second.begin(), connections.second.end(),
+			[](const WoCConnection& a, const WoCConnection& b)
+			{
+				return a.count > b.count;
+			});
+	}
+
+	// Put the board back to its original state.
+	ClearBridgesOnBoard();
+	for (Node* node : islands)
+	{
+		CreateBaseNeighborInfo(node);
+	}
+
+	// Create an empty chromosome.
+	Chromosome emptyChrome;
+	for (Node* node : islands)
+	{
+		emptyChrome.push_back(Gene(node->nodeID, 0));
+	}
+
+	// Make the wisdom chromosome.
+	FitnessChromosome fWisdomChrome = FitnessChromosome(0.f, Chromosome(emptyChrome));
+	Chromosome& wisdomChrome = fWisdomChrome.second;
+
+	// Start building.
+	for (Node* node : islands)
+	{
+		int id = node->nodeID;
+		Gene& gene = wisdomChrome[id];
+		int index = 0;
+		// Iterate till the island is full or no connections are left.
+		while(CalcConnectionsFromMask(gene.second) < node->value && index < connectionsMap[id].size())
+		{
+			WoCConnection wocc;
+			if (!connectionsMap[id].empty())
+			{
+				bool bGeneVisited = true;
+				// Same here.
+				do
+				{
+					wocc = connectionsMap[id][index];
+					if (find_if(wisdomChrome.begin(), wisdomChrome.end(),
+						[&wocc](const Gene& g)
+						{
+							return g.first == wocc.islandID;
+						}) != wisdomChrome.end())
+					{
+						bGeneVisited = false;
+					}
+				} while (++index < connectionsMap[id].size() && bGeneVisited);
+
+				// Obtained the found connection neighbor.
+				Neighbor* nb = nullptr;
+				vector<Neighbor*>::iterator nbiter = find_if(node->neighbors.begin(), node->neighbors.end(),
+					[&wocc](const Neighbor* n)
+					{
+						return n->neighborNode->nodeID == wocc.islandID;
+					});
+				if (nbiter != node->neighbors.end())
+				{
+					nb = *nbiter;
+				}
+
+				if (nb)
+				{
+					// Set the bits based off of direction.
+					Direction dir = nb->neighborDirection;
+
+					gene.second |= 1 << (static_cast<int>(dir) + (wocc.bSingleConnection ? 0 : BITMASK_BOUNDARY));
+					wisdomChrome[nb->neighborNode->nodeID].second |= 1 << ((static_cast<int>(dir) ^ 1) + (wocc.bSingleConnection ? 0 : BITMASK_BOUNDARY));
+				}
+			}
+		}
+	}
+
+	// If the chromosome is unique.
+	if (CheckIfUnique(wisdomChrome))
+	{
+		// Fix, evaluate, and push.
+		FixChromosomeConnections(wisdomChrome);
+		EvaluateChromosome(fWisdomChrome);
+		population.push_back(fWisdomChrome);
+	}
+
+	return;
 }
 
 bool HashiBoard::CheckIfUnique(const Chromosome& chromosome)

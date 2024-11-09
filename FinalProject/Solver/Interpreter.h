@@ -1,4 +1,5 @@
 #include <vector>
+#include <map>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -44,6 +45,16 @@ struct Parameters
 	bool bWithWisdom;
 	int gensPerWisdom;
 	float elitismPerc;
+};
+
+/// <summary>
+/// A struct used for Wisdom of Crowds.
+/// </summary>
+struct WoCConnection
+{
+	int islandID;
+	bool bSingleConnection;
+	int count;
 };
 
 //The baseline structure, these are the 'islands' in the graph. 
@@ -324,6 +335,12 @@ private:
 	/// </summary>
 	/// <param name="mutationChromes"> Chromosomes to mutate </param>
 	void PerformMutation(const vector<int>& mutationChromes);
+
+	/// <summary>
+	/// Performs the Wisdom of Crowds operation on the population.
+	/// </summary>
+	/// <param name="elitismPerc">Percentage of the best of the population to consider.</param>
+	void PerformWisdomOfCrowds(float elitismPerc);
 
 	/// <summary>
 	/// Clears the bridges on the board to prepare for rendering.

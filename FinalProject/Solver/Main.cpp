@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 	string filePath = "";				// File path to the board.
 	// Algorithm Parameters - Start ==========
 	bool bWithSeed = false;
-	int seed = time(0);
+	int seed = static_cast<int>(time(0));
 	int populationSize = 200;			// Size of the population.
 	float crossoverProb = 0.7f;			// Probability a crossover occurs.
 	float mutationProb = 0.05f;			// Probability a mutation occurs.
