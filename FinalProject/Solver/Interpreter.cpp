@@ -439,7 +439,7 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 			Gene& gene = chromosome[i];
 			InitializeIslandConnections(gene.first, gene.second, chromosome);
 		}
-		FixChromosomeConnections(population[count].second);
+		//FixChromosomeConnections(population[count].second);
 		//Evaluate the fitness of the chromosome before leaving.
 		EvaluateChromosome(population[count]);
 		++count;
@@ -674,7 +674,7 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 			{
 				if (neighbor->numOfBridges > 0)
 				{
-					if (island->value == neighbor->neighborNode->value)
+					if (island->value == neighbor->neighborNode->value && island->value == neighbor->numOfBridges)
 					{
 						impossibleNodes++;
 					}
