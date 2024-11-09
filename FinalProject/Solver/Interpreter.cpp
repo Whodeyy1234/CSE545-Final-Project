@@ -889,7 +889,132 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 
 void HashiBoard::FixOverlappingConnections(Chromosome& chromosome)
 {
-	
+	vector<pair<pair<int, int>, pair<int, int>>> ExistingConnections;
+	for (const Gene& gene : chromosome)
+	{
+		Node* node = islands[gene.first];
+		uint8 mask = gene.second;
+		int bitCount = 0;
+		for (mask; mask; mask >>= 1)
+		{
+			if (mask & 1)
+			{
+				Direction dir = static_cast<Direction>(bitCount % BITMASK_BOUNDARY);
+				Node* nb = nullptr;
+				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
+					[&dir](const Neighbor* nb)
+					{
+						return nb->neighborDirection == dir;
+					});
+				if (iter != node->neighbors.end())
+				{
+					nb = (*iter)->neighborNode;
+				}
+
+				if (nb)
+				{
+					pair<pair<int, int>, pair<int, int>> connection(
+						pair<int, int>(node->coords[0], node->coords[1]), pair<int, int>(nb->coords[0], nb->coords[1])
+					);
+
+					if (find_if(ExistingConnections.begin(), ExistingConnections.end(),
+						[&connection](const pair<pair<int, int>, pair<int, int>>& p)
+						{
+							return ((p.first.first == connection.first.first && p.first.second == connection.first.second &&
+								p.second.first == connection.second.first && p.second.second == connection.second.second) ||
+								(p.first.first == connection.second.first && p.first.second == connection.second.second &&
+									p.second.first == connection.first.first && p.second.second == connection.first.second));
+						}) == ExistingConnections.end())
+					{
+						ExistingConnections.push_back(connection);
+					}
+				}
+			}
+			++bitCount;
+		}
+	}
+
+	for (Gene& gene : chromosome)
+	{
+		Node* node = islands[gene.first];
+		uint8 mask = gene.second;
+		int bitCount = 0;
+		for (mask; mask; mask >>= 1)
+		{
+			if (mask & 1)
+			{
+				Direction dir = static_cast<Direction>(bitCount % BITMASK_BOUNDARY);
+				Node* nb = nullptr;
+				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
+					[&dir](const Neighbor* nb)
+					{
+						return nb->neighborDirection == dir;
+					});
+				if (iter != node->neighbors.end())
+				{
+					nb = (*iter)->neighborNode;
+				}
+
+				if (nb)
+				{
+					vector<pair<pair<int, int>, pair<int, int>>>::iterator eciter = find_if(ExistingConnections.begin(), ExistingConnections.end(),
+						[&, dir, node, nb](const pair<pair<int, int>, pair<int, int>>& p)
+						{
+							Node* first = (dir == Direction::LEFT || dir == Direction::UP) ? nb : node;
+							Node* second = (first == node) ? nb : node;
+
+							int width = second->coords[1] - first->coords[1];
+							int height = second->coords[0] - first->coords[0];
+
+							pair<int, int> cFirst = (p.first.first <= p.second.first && p.first.second <= p.second.second) ? p.first : p.second;
+							pair<int, int> cSecond = (cFirst == p.first) ? p.second : p.first;
+
+							int cWidth = cSecond.second - cFirst.second;
+							int cHeight = cSecond.first - cFirst.first;
+
+							if (width == cWidth && height == cHeight) return false;
+
+							if (!width) ++width;
+							if (!height) ++height;
+
+							if (!cWidth) ++cWidth;
+							if (!cHeight) ++cHeight;
+
+							return (first->coords[1] < cFirst.second + cWidth &&
+								first->coords[1] + width > cFirst.second &&
+								first->coords[0] < cFirst.first + cHeight &&
+								first->coords[0] + height > cFirst.first);
+						});
+					if (eciter != ExistingConnections.end())
+					{
+						Gene* nbGene = nullptr;
+						Chromosome::iterator giter = find_if(chromosome.begin(), chromosome.end(),
+							[&nb](const Gene& g)
+							{
+								return g.first == nb->nodeID;
+							});
+						if (giter != chromosome.end())
+						{
+							nbGene = &(*giter);
+						}
+
+						if(nbGene)
+						{
+							gene.second &= ~(1 << bitCount);
+							nbGene->second &= ~(1 << ((static_cast<int>(dir) ^ 1) + (bitCount >= BITMASK_BOUNDARY ? BITMASK_BOUNDARY : 0)));
+							vector<pair<pair<int, int>, pair<int, int>>>::iterator citer = find(ExistingConnections.begin(), ExistingConnections.end(),
+								pair<pair<int, int>, pair<int, int>>(pair<int, int>(node->coords[0], node->coords[1]), pair<int, int>(nb->coords[0], nb->coords[1])));
+							if (citer != ExistingConnections.end())
+							{
+								ExistingConnections.erase(citer);
+							}
+						}
+					}
+				}
+			}
+			++bitCount;
+		}
+	}
 }
 
 void HashiBoard::FixExcessConnections(Chromosome& chromosome)
