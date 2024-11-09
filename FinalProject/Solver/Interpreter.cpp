@@ -611,8 +611,9 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	//We have a small penalty for any nodes that have not reached their target value. 
 	int incorrectNodeValues = 0;
 	float penaltyExcessiveNode = static_cast<float>(-0.01);
-
-	//Now, we need to update each island.
+	bool disjoint = isDisjoint();
+	float penaltyDisjoint = static_cast<float>(-0.10);
+	//Now, we need to update each island
 	for (Node* island : islands)
 	{
 		Gene& gene = chrome.second[island->nodeID];
@@ -745,6 +746,10 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	chrome.first += penaltyImpossibleNode * impossibleNodes;
 	chrome.first += penaltyOverlappingBridge * overlappingBridges;
 	chrome.first += penaltyExcessiveNode * incorrectNodeValues;
+	if (disjoint) {
+		chrome.first += penaltyDisjoint;
+	}
+
 }
 
 int HashiBoard::CalcConnectionsFromMask(uint8 connection)
@@ -1389,10 +1394,6 @@ void HashiBoard::FixExcessConnections(Chromosome& chromosome)
 	}
 }
 
-void HashiBoard::WisdomOfCrowds()
-{
-
-}
 
 ////////////////////////////////////////////////////////////
 // For debuggin purposes for now, I'll delete this later. 
@@ -1425,6 +1426,31 @@ void HashiBoard::PrintBoard() const {
 		cout << endl;
 	}
 	cout << endl;
+}
+
+bool HashiBoard::isDisjoint() const {
+	if (islands.empty()) return false;
+
+	// Using DFS to check connectivity
+	unordered_set<int> visited;
+	stack<Node*> nodeStack;
+	nodeStack.push(islands[0]);
+	visited.insert(islands[0]->nodeID);
+
+	while (!nodeStack.empty()) {
+		Node* current = nodeStack.top();
+		nodeStack.pop();
+
+		for (Neighbor* neighbor : current->neighbors) {
+			if (neighbor->numOfBridges > 0 && visited.find(neighbor->neighborNode->nodeID) == visited.end()) {
+				visited.insert(neighbor->neighborNode->nodeID);
+				nodeStack.push(neighbor->neighborNode);
+			}
+		}
+	}
+
+	// Check if all nodes were visited
+	return visited.size() != islands.size();
 }
 
 Direction HashiBoard::GetOppositeDirection(Direction currentDirection)

@@ -399,3 +399,4 @@ FodyWeavers.xsd
 *.csv
 *.txt
 FinalProject/Solver/imgui.ini
+/FinalProject/Solver/imgui.ini

@@ -5,6 +5,8 @@
 #include <sstream>
 #include <algorithm>
 #include <SDL2Singleton.h>
+#include <unordered_set>
+#include <stack>
 #pragma once
 using namespace std;
 
@@ -286,6 +288,10 @@ private:
 	/// <param name="chrome">The chromosome it belongs to to duplicate connections to neighbors.</param>
 	void InitializeIslandConnections(int id, uint8& connection, Chromosome& chrome);
 
+	/// <summary>
+	/// Repopulate the connections
+	/// </summary>
+	/// <param name="chrome">The chromosome to remake for</param>
 	void RemakeIslandConnections(Chromosome& chrome);
 
 	/// <summary>
@@ -395,7 +401,18 @@ private:
 	/// </summary>
 	void PrintBoard() const;
 
+	/// <summary>
+	/// Return the opposite direction
+	/// </summary>
+	/// <param name="currentDirection"></param>
+	/// <returns> Opposing direction </returns>
 	Direction GetOppositeDirection(Direction currentDirection);
+
+	/// <summary>
+	/// See if the path is walkable
+	/// </summary>
+	/// <returns> True if path is separated, false otherwise </returns>
+	bool isDisjoint() const;
 };
 
 class WisdomOfCrowds
