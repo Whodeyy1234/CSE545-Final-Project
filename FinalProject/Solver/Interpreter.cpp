@@ -338,8 +338,8 @@ bool HashiBoard::Process(Parameters params)
 	// Determining crossovers and mutations.
 	for (int i = 0; i < population.size(); ++i)
 	{
-		float perc = static_cast<float>(rand() / RAND_MAX);
-		if (perc < params.crossoverProb)
+		float perc = static_cast<float>(rand()) / RAND_MAX;
+		if (perc < params.crossoverProb/* && population[i].first >= 0.6f*/)
 		{
 			if (!bCrossoverStarted)
 			{
@@ -394,11 +394,9 @@ bool HashiBoard::Process(Parameters params)
 		outputFile << currGen << "," << bestPerc << endl;
 	}
 	// Ending condition.
-	if (bestPerc >= 1.3f || currGen > params.maxGenerations)
+	if (bestPerc >= 1.f || currGen > params.maxGenerations)
 	{
 		outputFile.close();
-		FixChromosomeConnections(population[0].second);
-		EvaluateChromosome(population[0]);
 		PrintBoard();
 		return false;
 	}
@@ -439,7 +437,7 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 			Gene& gene = chromosome[i];
 			InitializeIslandConnections(gene.first, gene.second, chromosome);
 		}
-		//FixChromosomeConnections(population[count].second);
+		FixChromosomeConnections(population[count].second);
 		//Evaluate the fitness of the chromosome before leaving.
 		EvaluateChromosome(population[count]);
 		++count;
@@ -591,11 +589,11 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 
 	//This part evaluates each island.
 	int impossibleNodes = 0;
-	float penaltyImpossibleNode = -0.05;
+	float penaltyImpossibleNode = static_cast<float>(-0.05);
 	int overlappingBridges = 0;
-	float penaltyOverlappingBridge = -0.02;
+	float penaltyOverlappingBridge = static_cast<float>(-0.02);
 	int excessiveNodes = 0;
-	float penaltyExcessiveNode = -0.01;
+	float penaltyExcessiveNode = static_cast<float>(-0.01);
 	//Now, we need to update each island
 	for (Node* island : islands)
 	{
@@ -951,28 +949,58 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 }
 
 void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
-	for (int chromeIndex : mutationChromes) {
+	for (int chromeIndex : mutationChromes) 
+	{
 		Chromosome& chromosome = population[chromeIndex].second;
 
 		// Randomly mutate genes in the chromosome
 		for (Gene& gene : chromosome) {
 			uint8& connection = gene.second;
-			int bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
+			int bitToToggle;
+			Node* node = islands[gene.first];
+			bool bFoundBit = false;
+			Direction dir = Direction::INVALID;
+			Neighbor* nb = nullptr;
+			do
+			{
+				bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
+				dir = static_cast<Direction>(bitToToggle % BITMASK_BOUNDARY);
+
+				// Test that the bit direction is valid.
+				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
+					[&dir](const Neighbor* n)
+					{
+						return n->neighborDirection == dir;
+					});
+				if (iter == node->neighbors.end())
+				{
+					bFoundBit = false;
+				}
+				else
+				{
+					bFoundBit = true;
+					nb = *iter;
+				}
+			}
+			while (!bFoundBit && !nb);
 			connection ^= (1 << bitToToggle);
 
 			// Also toggle the corresponding bit in the neighbor's gene
-			Node* node = islands[gene.first];
-			for (Neighbor* neighbor : node->neighbors) {
-				if ((bitToToggle % BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection)) ||
-					(bitToToggle % BITMASK_BOUNDARY + BITMASK_BOUNDARY == static_cast<int>(neighbor->neighborDirection))) {
-					Node* neighborNode = neighbor->neighborNode;
-					for (Gene& neighborGene : chromosome) {
-						if (neighborGene.first == neighborNode->nodeID) {
-							neighborGene.second ^= (1 << ((bitToToggle + BITMASK_BOUNDARY) % (2 * BITMASK_BOUNDARY)));
-							break;
-						}
-					}
-				}
+			Gene* nbGene = nullptr;
+			Chromosome::iterator cIter = find_if(chromosome.begin(), chromosome.end(),
+				[&nb](const Gene& g)
+				{
+					return g.first == nb->neighborNode->nodeID;
+				});
+			if (cIter != chromosome.end())
+			{
+				nbGene = &(*cIter);
+			}
+			
+			if (nbGene)
+			{
+				int shift = (bitToToggle < BITMASK_BOUNDARY ? ((bitToToggle % BITMASK_BOUNDARY) ^ 1) : (((bitToToggle % BITMASK_BOUNDARY) ^ 1) + BITMASK_BOUNDARY));
+				nbGene->second ^= (1 << shift);
 			}
 		}
 
