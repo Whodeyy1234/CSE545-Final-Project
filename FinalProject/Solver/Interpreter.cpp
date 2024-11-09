@@ -161,20 +161,20 @@ bool HashiBoard::Parseboard()
 	//After parsing, find the neighbors for each island, and print out their info!
 	for (Node* checkedNode : islands)
 	{
-		CreateBaseNeighborInfo(checkedNode);
+		UpdateBaseNeighborInfo(checkedNode);
 		checkedNode->PrintNodeInfo();
 	}
 	return true;
 }
 
-void HashiBoard::CreateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors)
-{
+void HashiBoard::UpdateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors)
+{;
 	Node* neighborNode = nullptr;
 	if (bShouldClearNeighbors)
 	{
-		for (Neighbor* nb : node->neighbors)
+		for (Neighbor* neighbor : node->neighbors) 
 		{
-			delete nb;
+			delete neighbor; 
 		}
 		node->neighbors.clear();
 	}
@@ -407,6 +407,9 @@ bool HashiBoard::Process(Parameters params)
 	if (bestPerc >= 1.f || currGen > params.maxGenerations)
 	{
 		outputFile.close();
+		//EvaluateChromosome(population[0]);
+		
+		cout << "Generation: " << currGen << "| Fitness: " << bestPerc << endl;
 		PrintBoard();
 		return false;
 	}
@@ -597,14 +600,19 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	//Remake the board using the specifications of the chromesome. 
 	RemakeIslandConnections(chrome.second);
 
-	//This part evaluates each island.
+	//We give a harsh penalty to any nodes that are in an 'impossible' state.
 	int impossibleNodes = 0;
 	float penaltyImpossibleNode = static_cast<float>(-0.05);
+
+	//We have a penalty for any bridges that were overlapping.
 	int overlappingBridges = 0;
 	float penaltyOverlappingBridge = static_cast<float>(-0.02);
-	int excessiveNodes = 0;
+
+	//We have a small penalty for any nodes that have not reached their target value. 
+	int incorrectNodeValues = 0;
 	float penaltyExcessiveNode = static_cast<float>(-0.01);
-	//Now, we need to update each island
+
+	//Now, we need to update each island.
 	for (Node* island : islands)
 	{
 		Gene& gene = chrome.second[island->nodeID];
@@ -614,6 +622,7 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 			delete neighbor;
 		}
 		island->neighbors.clear();
+
 		//Now we check if any connections were severed compared to the gene. If so, then this is due to an overlap! 
 		uint8 mask = gene.second;
 		//We have an array of bools to signify if there is a connection in a specific direction.
@@ -648,10 +657,12 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 
 				//Since we care about properly making sure connections are made, make the neighbor have this node as its neighbor too, as long as they're not already neighbors.
 				bool bAlreadyNeighbors = false;
+				//Check the neighbor's neighbors, see if this node is already included. 
 				for (Neighbor* neighborsNeighbor : neighborNode->neighbors)
 				{
 					if (neighborsNeighbor->neighborNode->nodeID == island->nodeID)
 					{
+						//If so, just validate the connection, and make sure the number of bridges between them is updated! 
 						bAlreadyNeighbors = true;
 						if (neighborsNeighbor->numOfBridges != island->neighbors.back()->numOfBridges)
 						{
@@ -668,10 +679,10 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 			}
 		}
 
-		//Check if an island has too many nodes on it; give it a penalty if it does.
-		if (island->GetCurrentNumConnections() > island->value)
+		//Check if an island has too many or too few nodes on it; give it a penalty if it does.
+		if (island->GetCurrentNumConnections() != island->value)
 		{
-			excessiveNodes++;
+			incorrectNodeValues++;
 		}
 
 		//Check for cases of nodes with a value of 1 or 2 attaching to another node of equal value.
@@ -733,7 +744,7 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	chrome.first = static_cast<float>(numAcquiredConnections) / numRequiredConnections;
 	chrome.first += penaltyImpossibleNode * impossibleNodes;
 	chrome.first += penaltyOverlappingBridge * overlappingBridges;
-	chrome.first += penaltyExcessiveNode * excessiveNodes;
+	chrome.first += penaltyExcessiveNode * incorrectNodeValues;
 }
 
 int HashiBoard::CalcConnectionsFromMask(uint8 connection)
@@ -1107,7 +1118,7 @@ void HashiBoard::PerformWisdomOfCrowds(float elitismPerc)
 	ClearBridgesOnBoard();
 	for (Node* node : islands)
 	{
-		CreateBaseNeighborInfo(node);
+		UpdateBaseNeighborInfo(node);
 	}
 
 	// Create an empty chromosome.
@@ -1248,6 +1259,13 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 	for (Gene& gene : chromosome)
 	{
 		Node* node = islands[gene.first];
+		//Before we start looking at mirroring connections, we need
+		//to make sure that all the node's neighbors exist, even if
+		//they might actually be hit by overlapping bridges.
+		 
+		//This will get checked and penalized later on, but for now, keep them.
+		ClearBridgesOnBoard();
+		UpdateBaseNeighborInfo(node);
 		uint8& mask = gene.second;
 
 		uint8 iterMask = mask;

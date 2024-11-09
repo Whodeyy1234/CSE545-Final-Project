@@ -241,7 +241,7 @@ private:
 	/// </summary>
 	/// <param name="node">Pointer to the node that is checking its neighbors.</param>
 	/// <param name="bShouldClearNeighbors">Should the neighbors list be cleared out before updating? Should usually be true, but here just in case. </param>
-	void CreateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
+	void UpdateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
 
 	void UpdateNeighborInfo(Node* node, Gene& gene, bool bShouldClearNeighbors = true);
 
