@@ -67,9 +67,13 @@ public:
 
 	void PrintNodeInfo() const;
 
+	int GetCurrentNumConnections() const;
+
 	//A 'neighbor' is a struct that contains the # of bridges between the two nodes, the direction to the neighbor, as well as a pointer to the neighboring node object itself. 
 	//Two nodes who are neighbors should have pointers to one another. 
 	vector<Neighbor*> neighbors;
+
+	//vector<Neighbor*> updatedNeighbors;
 };
 
 /// <summary>
@@ -226,7 +230,9 @@ private:
 	/// </summary>
 	/// <param name="node">Pointer to the node that is checking its neighbors.</param>
 	/// <param name="bShouldClearNeighbors">Should the neighbors list be cleared out before updating? Should usually be true, but here just in case. </param>
-	void UpdateNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
+	void CreateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
+
+	void UpdateNeighborInfo(Node* node, Gene& gene, bool bShouldClearNeighbors = true);
 
 	/// <summary>
 	/// Gets the node at specified (y, x) coordinates. Y
@@ -268,6 +274,8 @@ private:
 	/// <param name="connection">It's bitmask to parse.</param>
 	/// <param name="chrome">The chromosome it belongs to to duplicate connections to neighbors.</param>
 	void InitializeIslandConnections(int id , uint8& connection, Chromosome& chrome);
+
+	void RemakeIslandConnections(Chromosome& chrome);
 
 	/// <summary>
 	/// Fitness function.
@@ -357,10 +365,23 @@ private:
 	void ValidateConnections(Chromosome& chrome);
 
 	//------------------------
+	
+	/// <summary>
+	/// Wisdom of crowds is complex, but essentially, it takes all of the 
+	/// chromosomes at the end of a generations, and matches them up.
+	/// </summary>
+	void WisdomOfCrowds();
 
 	/// <summary>
 	/// Temporary Helper Function to print the board after every new generation 
 	/// For debugging purposes - to be removed
 	/// </summary>
 	void PrintBoard() const;
+
+	Direction GetOppositeDirection(Direction currentDirection);
+};
+
+class WisdomOfCrowds
+{
+	HashiBoard board; 
 };

@@ -6,12 +6,22 @@ void Node::PrintNodeInfo() const
 {
 	{
 		cout << "Node at coordinates [" << coords[1] << "," << coords[0] << "] has a value of: " << value << endl;
-		for (Neighbor* checkedNeighbor : neighbors) 
+		for (Neighbor* checkedNeighbor : neighbors)
 		{
 			cout << "It has a neighbor at: [" << checkedNeighbor->neighborNode->coords[1] << "," << checkedNeighbor->neighborNode->coords[0] << "]" << endl;
 		}
 		cout << endl;
 	}
+}
+
+int Node::GetCurrentNumConnections() const
+{
+	int totalConnections = 0;
+	for (Neighbor* neighbor : neighbors)
+	{
+		totalConnections += neighbor->numOfBridges;
+	}
+	return totalConnections;
 }
 
 Node::~Node()
@@ -124,12 +134,12 @@ bool HashiBoard::ParseBoardFile(string filePath)
 	return false;
 }
 
-bool HashiBoard::Parseboard() 
+bool HashiBoard::Parseboard()
 {
 	int rowIndex = 0;
 	int columnIndex = 0;
 	int currentID = 0;
-	for (const vector<int> row : board) 
+	for (const vector<int> row : board)
 	{
 		for (const int& nodeValue : row)
 		{
@@ -149,17 +159,21 @@ bool HashiBoard::Parseboard()
 		rowIndex++;
 	}
 	//After parsing, find the neighbors for each island, and print out their info!
-	for (Node* checkedNode : islands) 
+	for (Node* checkedNode : islands)
 	{
-		UpdateNeighborInfo(checkedNode);
+		CreateBaseNeighborInfo(checkedNode);
 		checkedNode->PrintNodeInfo();
 	}
 	return true;
 }
 
-void HashiBoard::UpdateNeighborInfo(Node* node, bool bShouldClearNeighbors)
+void HashiBoard::CreateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors)
 {
 	Node* neighborNode = nullptr;
+	if (bShouldClearNeighbors)
+	{
+		node->neighbors.clear();
+	}
 	//We need to traverse in each direction in the board in order to find a hit.
 	Direction directionsToCheck[4] = { Direction::LEFT, Direction::RIGHT, Direction::DOWN, Direction::UP };
 	for (Direction direction : directionsToCheck)
@@ -177,7 +191,7 @@ Node* HashiBoard::GetNodeAtCoords(int row, int col)
 {
 	for (Node* checkedNode : islands)
 	{
-		if (checkedNode->coords[0] == row && checkedNode->coords[1] == col) 
+		if (checkedNode->coords[0] == row && checkedNode->coords[1] == col)
 		{
 			//cout << "Node found at coords." << endl;
 			return checkedNode;
@@ -191,14 +205,14 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 	//Negative values are planned to be for bridges on the graph; check the top of interpreter.h for the commands. 
 	int index = 0;
 	int parsedNodeValue = 0;
-	switch (direction) 
+	switch (direction)
 	{
-	case Direction::LEFT: 
-		for (index = col - 1; index >= 0; index--) 
+	case Direction::LEFT:
+		for (index = col - 1; index >= 0; index--)
 		{
 			parsedNodeValue = board[row][index];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(row, index); }
-			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
+			else if (parsedNodeValue != HORI_SINGLE_BRIDGE && parsedNodeValue != HORI_DOUBLE_BRIDGE && parsedNodeValue != 0) { return nullptr; } //A vertical bridge has been hit. 
 		}
 		break;
 	case Direction::RIGHT:
@@ -206,15 +220,15 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 		{
 			parsedNodeValue = board[row][index];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(row, index); }
-			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
+			else if (parsedNodeValue != HORI_SINGLE_BRIDGE && parsedNodeValue != HORI_DOUBLE_BRIDGE && parsedNodeValue != 0) { return nullptr; } //A vertical bridge has been hit. 
 		}
 		break;
 	case Direction::DOWN:
 		for (index = row + 1; index < boardSizeY; index++)
 		{
 			parsedNodeValue = board[index][col];
-			if (parsedNodeValue > 0)  { return GetNodeAtCoords(index, col); }
-			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
+			if (parsedNodeValue > 0) { return GetNodeAtCoords(index, col); }
+			else if (parsedNodeValue != VERT_SINGLE_BRIDGE && parsedNodeValue != VERT_DOUBLE_BRIDGE && parsedNodeValue != 0) { return nullptr; } //A horizontal bridge has been hit. 
 		}
 		break;
 	case Direction::UP:
@@ -222,7 +236,7 @@ Node* HashiBoard::GetNodeInDirection(Direction direction, int row, int col)
 		{
 			parsedNodeValue = board[index][col];
 			if (parsedNodeValue > 0) { return GetNodeAtCoords(index, col); }
-			else if (parsedNodeValue < 0) { return nullptr; } //Bridge has been hit when a negative value. 
+			else if (parsedNodeValue != VERT_SINGLE_BRIDGE && parsedNodeValue != VERT_DOUBLE_BRIDGE && parsedNodeValue != 0) { return nullptr; } //A horizontal bridge has been hit. 
 		}
 		break;
 	}
@@ -259,7 +273,7 @@ bool HashiBoard::Update(Parameters params)
 	ClearBridgesOnBoard();
 
 	// Iterate through the genes to populate the board.
-	for (Gene& gene : chrome) 
+	for (Gene& gene : chrome)
 	{
 		uint8 mask = gene.second;
 		Node* node = islands[gene.first];
@@ -268,32 +282,32 @@ bool HashiBoard::Update(Parameters params)
 		int y = node->coords[0];
 
 		int bitCount = 0;
-		while (mask) 
+		while (mask)
 		{
-			if (mask & 1) 
+			if (mask & 1)
 			{
-				switch (bitCount % BITMASK_BOUNDARY) 
+				switch (bitCount % BITMASK_BOUNDARY)
 				{
 				case 0: // Left
-					for (int index = x - 1; board[y][index] <= 0; --index) 
+					for (int index = x - 1; board[y][index] <= 0; --index)
 					{
 						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
 					}
 					break;
 				case 1: // Right
-					for (int index = x + 1; board[y][index] <= 0; ++index) 
+					for (int index = x + 1; board[y][index] <= 0; ++index)
 					{
 						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
 					}
 					break;
 				case 2: // Down
-					for (int index = y + 1; board[index][x] <= 0; ++index) 
+					for (int index = y + 1; board[index][x] <= 0; ++index)
 					{
 						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
 					}
 					break;
 				case 3: // Up
-					for (int index = y - 1; board[index][x] <= 0; --index) 
+					for (int index = y - 1; board[index][x] <= 0; --index)
 					{
 						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
 					}
@@ -380,9 +394,12 @@ bool HashiBoard::Process(Parameters params)
 		outputFile << currGen << "," << bestPerc << endl;
 	}
 	// Ending condition.
-	if (bestPerc >= 1.0f || currGen > params.maxGenerations)
+	if (bestPerc >= 1.3f || currGen > params.maxGenerations)
 	{
 		outputFile.close();
+		FixChromosomeConnections(population[0].second);
+		EvaluateChromosome(population[0]);
+		PrintBoard();
 		return false;
 	}
 
@@ -416,13 +433,14 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 		// Add an empty chromosome.
 		population.push_back(FitnessChromosome(0.f, Chromosome(emptyChrome)));
 		Chromosome& chromosome = population[count].second;
-		// Iterate through the genes and initialize connections.
+		//Iterate through the genes and initialize connections.
 		for (int i = 0; i < chromosome.size(); ++i)
 		{
 			Gene& gene = chromosome[i];
 			InitializeIslandConnections(gene.first, gene.second, chromosome);
 		}
-		// Evaluate the fitness of the chromosome before leaving.
+		FixChromosomeConnections(population[count].second);
+		//Evaluate the fitness of the chromosome before leaving.
 		EvaluateChromosome(population[count]);
 		++count;
 	}
@@ -452,7 +470,7 @@ void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromoso
 		{
 			nbGene = &(*Iter);
 		}
-		if(nbGene)
+		if (nbGene)
 		{
 			// Obtain the open connections.
 			int remainingConnections = island->value - numConnections;
@@ -471,6 +489,7 @@ void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromoso
 						}
 						// If not, add one.
 						connection |= (1 << static_cast<int>(nb->neighborDirection) << BITMASK_BOUNDARY);
+						//nb->numOfBridges = 2;
 						numConnections += 2;
 						nbGene->second |= (1 << (static_cast<int>(nb->neighborDirection) ^ 1) << BITMASK_BOUNDARY);
 					}
@@ -483,6 +502,7 @@ void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromoso
 						}
 						// If not, add one.
 						connection |= 1 << static_cast<int>(nb->neighborDirection);
+						//nb->numOfBridges = 1;
 						++numConnections;
 						nbGene->second |= 1 << (static_cast<int>(nb->neighborDirection) ^ 1);
 					}
@@ -496,6 +516,7 @@ void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromoso
 					}
 					// If not, add one.
 					connection |= 1 << static_cast<int>(nb->neighborDirection);
+					//nb->numOfBridges = 1;
 					++numConnections;
 					nbGene->second |= 1 << (static_cast<int>(nb->neighborDirection) ^ 1);
 				}
@@ -504,11 +525,197 @@ void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromoso
 	}
 }
 
+void HashiBoard::RemakeIslandConnections(Chromosome& chrome)
+{
+	// Obtain the island and some helpful values.
+	ClearBridgesOnBoard();
+
+	// Iterate through the genes to populate the board.
+	for (Gene& gene : chrome)
+	{
+		uint8 mask = gene.second;
+		Node* node = islands[gene.first];
+
+		int x = node->coords[1];
+		int y = node->coords[0];
+
+		int bitCount = 0;
+		while (mask)
+		{
+			if (mask & 1)
+			{
+				switch (bitCount % BITMASK_BOUNDARY)
+				{
+				case 0: // Left
+					for (int index = x - 1; board[y][index] <= 0; --index)
+					{
+						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
+					}
+					break;
+				case 1: // Right
+					for (int index = x + 1; board[y][index] <= 0; ++index)
+					{
+						board[y][index] = (bitCount < BITMASK_BOUNDARY) ? HORI_SINGLE_BRIDGE : HORI_DOUBLE_BRIDGE;
+					}
+					break;
+				case 2: // Down
+					for (int index = y + 1; board[index][x] <= 0; ++index)
+					{
+						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
+					}
+					break;
+				case 3: // Up
+					for (int index = y - 1; board[index][x] <= 0; --index)
+					{
+						board[index][x] = (bitCount < BITMASK_BOUNDARY) ? VERT_SINGLE_BRIDGE : VERT_DOUBLE_BRIDGE;
+					}
+					break;
+				default:
+					break;
+				}
+			}
+			mask >>= 1;
+			++bitCount;
+		}
+	}
+}
+
 void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 {
-	// Fitness is defined as the completion of all island connections.
+	// Fitness is defined as the completion of all island connections, as well as penalizing 'wrong' connections. 
 	int numRequiredConnections = 0;
 	int numAcquiredConnections = 0;
+
+	//Remake the board using the specifications of the chromesome. 
+	RemakeIslandConnections(chrome.second);
+
+	//This part evaluates each island.
+	int impossibleNodes = 0;
+	float penaltyImpossibleNode = -0.05;
+	int overlappingBridges = 0;
+	float penaltyOverlappingBridge = -0.02;
+	int excessiveNodes = 0;
+	float penaltyExcessiveNode = -0.01;
+	//Now, we need to update each island
+	for (Node* island : islands)
+	{
+		Gene& gene = chrome.second[island->nodeID];
+		Node* neighborNode = nullptr;
+		for (Neighbor* neighbor : island->neighbors)
+		{
+			delete neighbor;
+		}
+		island->neighbors.clear();
+		//Now we check if any connections were severed compared to the gene. If so, then this is due to an overlap! 
+		uint8 mask = gene.second;
+		//We have an array of bools to signify if there is a connection in a specific direction.
+		//The index for each direction in geneConnections is below:
+		//Left = 0
+		//Right = 1
+		//Down = 2
+		//Up = 3;
+		int numGeneConnections[4] = { 0,0,0,0 };
+		bool geneConnections[4] = { 0,0,0,0 };
+		int bitCount = 0;
+		while (mask)
+		{
+			if (mask & 1)
+			{
+				geneConnections[bitCount % BITMASK_BOUNDARY] = true;
+				numGeneConnections[bitCount % BITMASK_BOUNDARY] = (bitCount < BITMASK_BOUNDARY) ? 1 : 2;
+			}
+			mask >>= 1;
+			++bitCount;
+		}
+
+		//We need to traverse in each direction in the board in order to find a hit.
+		Direction directionsToCheck[4] = { Direction::LEFT, Direction::RIGHT, Direction::DOWN, Direction::UP };
+		for (Direction direction : directionsToCheck)
+		{
+			neighborNode = GetNodeInDirection(direction, island->coords[0], island->coords[1]);
+			if (neighborNode)
+			{
+				island->neighbors.push_back(new Neighbor(0, direction, neighborNode));
+				island->neighbors.back()->numOfBridges = numGeneConnections[(int)direction];
+
+				//Since we care about properly making sure connections are made, make the neighbor have this node as its neighbor too, as long as they're not already neighbors.
+				bool bAlreadyNeighbors = false;
+				for (Neighbor* neighborsNeighbor : neighborNode->neighbors)
+				{
+					if (neighborsNeighbor->neighborNode->nodeID == island->nodeID)
+					{
+						bAlreadyNeighbors = true;
+						if (neighborsNeighbor->numOfBridges != island->neighbors.back()->numOfBridges)
+						{
+							neighborsNeighbor->numOfBridges = island->neighbors.back()->numOfBridges; 
+						}
+					}
+				}
+				if (!bAlreadyNeighbors)
+				{
+					neighborNode->neighbors.push_back(new Neighbor(0, GetOppositeDirection(direction), island));
+					neighborNode->neighbors.back()->numOfBridges = numGeneConnections[(int)direction];
+				}
+
+			}
+		}
+
+		//Check if an island has too many nodes on it; give it a penalty if it does.
+		if (island->GetCurrentNumConnections() > island->value)
+		{
+			excessiveNodes++;
+		}
+
+		//Check for cases of nodes with a value of 1 or 2 attaching to another node of equal value.
+		//That's an impossible case to have! Penalize that as well.
+		if (island->value <= 2)
+		{
+			for (Neighbor* neighbor : island->neighbors)
+			{
+				if (neighbor->numOfBridges > 0)
+				{
+					if (island->value == neighbor->neighborNode->value)
+					{
+						impossibleNodes++;
+					}
+				}
+			}
+		}
+
+		//Now, we iterate through each neighbor in the island; for a neighbor that corresponds to
+		//a direction in the geneConnections array, we set that direction in the geneConnections array to be false.
+		for (Neighbor* neighbor : island->neighbors)
+		{
+			geneConnections[(int)neighbor->neighborDirection] = 0;
+		}
+
+		//After this process is done, if there are still any 'true' values in the geneConnections array,
+		//then we know we've lost a connection in there due to an overlapping bridge.
+		for (bool lostConnection : geneConnections)
+		{
+			if (lostConnection == true)
+			{
+				overlappingBridges++;
+			}
+		}
+
+		//Check if an island is incomplete; can it stil be completed in this new board state?
+		if (island->value > island->GetCurrentNumConnections())
+		{
+			//The island has no more neighbors! That's a no-no. 
+			if (island->neighbors.size() == 0)
+			{
+				impossibleNodes++;
+			}
+			//The island doesn't have enough neighbors to fufill its value!
+			//For example, a '3' island with only 1 neighbor could only fill 2 bridges. 
+			if (island->neighbors.size() * 2 < island->value)
+			{
+				impossibleNodes++;
+			}
+		}
+	}
+
 	for (Gene& gene : chrome.second)
 	{
 		numRequiredConnections += islands[gene.first]->value;
@@ -516,6 +723,9 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	}
 
 	chrome.first = static_cast<float>(numAcquiredConnections) / numRequiredConnections;
+	chrome.first += penaltyImpossibleNode * impossibleNodes;
+	chrome.first += penaltyOverlappingBridge * overlappingBridges;
+	chrome.first += penaltyExcessiveNode * excessiveNodes;
 }
 
 int HashiBoard::CalcConnectionsFromMask(uint8 connection)
@@ -544,7 +754,7 @@ int HashiBoard::CalcConnectionsFromMask(uint8 connection)
 	return count;
 }
 
-void HashiBoard::RenderBoard() 
+void HashiBoard::RenderBoard()
 {
 	if (!board.size())
 	{
@@ -621,7 +831,7 @@ void HashiBoard::RenderIsland(const int Id, const int CenterX, const int CenterY
 	// Creates a null-terminated string of the id. NOTE: Ids don't go above 2 digits so this works.
 	vector<char> idString = { ASCII_ITOA(Id), '\0' };
 	// Creates a surfaces from the id and font.
-	SDL_Surface* TextSurface = TTF_RenderText_Solid(SDL->GetFont(), idString.data(), {255, 255, 255, 255});
+	SDL_Surface* TextSurface = TTF_RenderText_Solid(SDL->GetFont(), idString.data(), { 255, 255, 255, 255 });
 	if (TextSurface)
 	{
 		// Creates a texture from the surface.
@@ -655,28 +865,28 @@ void HashiBoard::RenderBridge(const int Type, const int CenterX, const int Cente
 	switch (Type)
 	{
 	case VERT_SINGLE_BRIDGE: // |
-		SDL_RenderDrawLine(SDL->GetRenderer(), 
+		SDL_RenderDrawLine(SDL->GetRenderer(),
 			CenterX, CenterY - gridHeight / 2 - verticalIslandShift,
 			CenterX, CenterY + gridHeight / 2 + verticalIslandShift);
 		break;
 	case VERT_DOUBLE_BRIDGE: // ||
-		SDL_RenderDrawLine(SDL->GetRenderer(), 
+		SDL_RenderDrawLine(SDL->GetRenderer(),
 			CenterX - r * OFFSET_FACTOR, CenterY - gridHeight / 2 - verticalIslandShift,
 			CenterX - r * OFFSET_FACTOR, CenterY + gridHeight / 2 + verticalIslandShift);
-		SDL_RenderDrawLine(SDL->GetRenderer(), 
+		SDL_RenderDrawLine(SDL->GetRenderer(),
 			CenterX + r * OFFSET_FACTOR, CenterY - gridHeight / 2 - verticalIslandShift,
 			CenterX + r * OFFSET_FACTOR, CenterY + gridHeight / 2 + verticalIslandShift);
 		break;
 	case HORI_SINGLE_BRIDGE: // -
-		SDL_RenderDrawLine(SDL->GetRenderer(), 
-			CenterX - gridWidth / 2 - horizontalIslandShift, CenterY, 
+		SDL_RenderDrawLine(SDL->GetRenderer(),
+			CenterX - gridWidth / 2 - horizontalIslandShift, CenterY,
 			CenterX + gridWidth / 2 + horizontalIslandShift, CenterY);
 		break;
 	case HORI_DOUBLE_BRIDGE: // =
-		SDL_RenderDrawLine(SDL->GetRenderer(), 
+		SDL_RenderDrawLine(SDL->GetRenderer(),
 			CenterX - gridWidth / 2 - horizontalIslandShift, CenterY - r * OFFSET_FACTOR,
 			CenterX + gridWidth / 2 + horizontalIslandShift, CenterY - r * OFFSET_FACTOR);
-		SDL_RenderDrawLine(SDL->GetRenderer(), 
+		SDL_RenderDrawLine(SDL->GetRenderer(),
 			CenterX - gridWidth / 2 - horizontalIslandShift, CenterY + r * OFFSET_FACTOR,
 			CenterX + gridWidth / 2 + horizontalIslandShift, CenterY + r * OFFSET_FACTOR);
 		break;
@@ -685,9 +895,9 @@ void HashiBoard::RenderBridge(const int Type, const int CenterX, const int Cente
 	}
 }
 
-void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes) 
+void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes)
 {
-	for (const auto& pair : crossoverChromes) 
+	for (const auto& pair : crossoverChromes)
 	{
 		if (pair.second == -1) continue;
 
@@ -720,6 +930,10 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 		{
 			FitnessChromosome fChild1 = { 0.f, child1 };
 			EvaluateChromosome(fChild1);
+			if (fChild1.first > 0.99f)
+			{
+				cout << "foo";
+			}
 			population.push_back(fChild1);
 		}
 
@@ -727,6 +941,10 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 		{
 			FitnessChromosome fChild2 = { 0.f, child2 };
 			EvaluateChromosome(fChild2);
+			if (fChild2.first > 0.99f)
+			{
+				cout << "foo";
+			}
 			population.push_back(fChild2);
 		}
 	}
@@ -812,7 +1030,7 @@ void HashiBoard::ReduceExcessConnections(uint8& mask, int excessConnections) {
 	}
 }
 
-void HashiBoard::FixChromosomeConnections(Chromosome& chromosome) 
+void HashiBoard::FixChromosomeConnections(Chromosome& chromosome)
 {
 	// Fix mirroring connections between islands from different parents.
 	FixMirroringConnections(chromosome);
@@ -889,7 +1107,7 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 
 void HashiBoard::FixOverlappingConnections(Chromosome& chromosome)
 {
-	
+
 }
 
 void HashiBoard::FixExcessConnections(Chromosome& chromosome)
@@ -942,13 +1160,18 @@ void HashiBoard::FixExcessConnections(Chromosome& chromosome)
 				if (nbGene)
 				{
 					// Clear the bit.
-					nbGene->second &= ~(1 << (bitToTurnOff < BITMASK_BOUNDARY ? (bitToTurnOff % BITMASK_BOUNDARY) ^ 1 : (bitToTurnOff % BITMASK_BOUNDARY) ^ 1 << BITMASK_BOUNDARY));
+					int shift = (bitToTurnOff < BITMASK_BOUNDARY ? ((bitToTurnOff % BITMASK_BOUNDARY) ^ 1) : (((bitToTurnOff % BITMASK_BOUNDARY) ^ 1) + BITMASK_BOUNDARY));
+					nbGene->second &= ~(1 << shift);
 				}
 			}
 		}
 	}
 }
 
+void HashiBoard::WisdomOfCrowds()
+{
+
+}
 
 ////////////////////////////////////////////////////////////
 // For debuggin purposes for now, I'll delete this later. 
@@ -962,10 +1185,10 @@ void HashiBoard::PrintBoard() const {
 				int bridgeCount = 0;
 				for (int i = 0; i < BITMASK_BOUNDARY * 2; ++i) {
 					if (cell & (1 << i)) {
-						bridgeCount += (i < BITMASK_BOUNDARY) ? 2 : 1; 
+						bridgeCount += (i < BITMASK_BOUNDARY) ? 2 : 1;
 					}
 				}
-				cout << cell << "(" << bridgeCount << ") "; // Print island with bridge count to see where numbers are differing
+				cout << cell << " ";//<< "(" << bridgeCount << ") "; // Print island with bridge count to see where numbers are differing
 			}
 			else {
 				// Print bridges
@@ -973,7 +1196,7 @@ void HashiBoard::PrintBoard() const {
 				case HORI_SINGLE_BRIDGE: cout << "- "; break;
 				case HORI_DOUBLE_BRIDGE: cout << "= "; break;
 				case VERT_SINGLE_BRIDGE: cout << "| "; break;
-				case VERT_DOUBLE_BRIDGE: cout << "|| "; break;
+				case VERT_DOUBLE_BRIDGE: cout << "||"; break;
 				default: cout << ". ";
 				}
 			}
@@ -981,4 +1204,16 @@ void HashiBoard::PrintBoard() const {
 		cout << endl;
 	}
 	cout << endl;
+}
+
+Direction HashiBoard::GetOppositeDirection(Direction currentDirection)
+{
+	switch (currentDirection)
+	{
+	case Direction::LEFT:	return Direction::RIGHT;
+	case Direction::RIGHT:	return Direction::LEFT;
+	case Direction::DOWN:	return Direction::UP;
+	case Direction::UP:		return Direction::DOWN;
+	default:				return Direction::INVALID;
+	}
 }
