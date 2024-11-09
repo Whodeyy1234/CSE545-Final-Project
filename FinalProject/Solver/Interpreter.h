@@ -36,6 +36,7 @@ enum class Direction : int
 /// </summary>
 struct Parameters
 {
+	unsigned int seed;
 	int populationSize;
 	float crossoverProb;
 	float mutationProb;
@@ -66,9 +67,13 @@ public:
 
 	void PrintNodeInfo() const;
 
+	int GetCurrentNumConnections() const;
+
 	//A 'neighbor' is a struct that contains the # of bridges between the two nodes, the direction to the neighbor, as well as a pointer to the neighboring node object itself. 
 	//Two nodes who are neighbors should have pointers to one another. 
 	vector<Neighbor*> neighbors;
+
+	//vector<Neighbor*> updatedNeighbors;
 };
 
 /// <summary>
@@ -176,6 +181,11 @@ private:
 	/// </summary>
 	float bestPerc;
 
+	/// <summary>
+	/// Outpus csv of the algorithm.
+	/// </summary>
+	ofstream outputFile;
+
 	// Useful typedef for less typing.
 	typedef uint8_t uint8;
 	// A gene is a pair of integer and uint8.
@@ -220,7 +230,9 @@ private:
 	/// </summary>
 	/// <param name="node">Pointer to the node that is checking its neighbors.</param>
 	/// <param name="bShouldClearNeighbors">Should the neighbors list be cleared out before updating? Should usually be true, but here just in case. </param>
-	void UpdateNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
+	void CreateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
+
+	void UpdateNeighborInfo(Node* node, Gene& gene, bool bShouldClearNeighbors = true);
 
 	/// <summary>
 	/// Gets the node at specified (y, x) coordinates. Y
@@ -251,8 +263,9 @@ private:
 	/// Initializes the population for the algorithm.
 	/// </summary>
 	/// <param name="populationSize">Size of the requested population.</param>
+	/// <param name="seed">Seed to see the random generator with.</param>
 	/// <returns>Whether or not the population was created successfully.</returns>
-	bool InitializePopulation(int populationSize);
+	bool InitializePopulation(int populationSize, unsigned int seed);
 
 	/// <summary>
 	/// Initializes an island specified by the id parameter.
@@ -260,7 +273,9 @@ private:
 	/// <param name="id">Id of the island to initialize.</param>
 	/// <param name="connection">It's bitmask to parse.</param>
 	/// <param name="chrome">The chromosome it belongs to to duplicate connections to neighbors.</param>
-	void InitializeIslandConnections(int id , uint8& connection, Chromosome& chrome);
+	void InitializeIslandConnections(int id, uint8& connection, Chromosome& chrome);
+
+	void RemakeIslandConnections(Chromosome& chrome);
 
 	/// <summary>
 	/// Fitness function.
@@ -296,4 +311,77 @@ private:
 	/// <param name="CenterX">The center of the island in pixels x.</param>
 	/// <param name="CenterY">The center of the island in pixels y.</param>
 	void RenderBridge(const int Type, const int CenterX, const int CenterY);
+
+	/// <summary>
+	/// Perform the crossover using single point crossover
+	/// </summary>
+	/// <param name="crossoverChromes"> The pair of </param>
+	void PerformCrossover(const vector<pair<int, int>>& crossoverChromes);
+
+	/// <summary>
+	/// Perform the mutation: Flipping a bit randomly in the bridge connections
+	/// Essentially adds or removes connections between two islands
+	/// </summary>
+	/// <param name="mutationChromes"> Chromosomes to mutate </param>
+	void PerformMutation(const vector<int>& mutationChromes);
+
+	/// <summary>
+	/// Clears the bridges on the board to prepare for rendering.
+	/// </summary>
+	void ClearBridgesOnBoard();
+
+	/// <summary>
+	/// Checks if the passed chromosome is unique to the population.
+	/// </summary>
+	/// <param name="chromosome">Chromosome to check.</param>
+	/// <returns>Whether or not the chromosome is unique.</returns>
+	bool CheckIfUnique(const Chromosome& chromosome);
+
+	/// <summary>
+	/// Fixes the chromosome connection errors that are present.
+	/// </summary>
+	/// <param name="chromosome">Chromosome to fix.</param>
+	void FixChromosomeConnections(Chromosome& chromosome);
+
+	/// <summary>
+	/// Fixes the mirroring of direction connections to islands that are present.
+	/// </summary>
+	/// <param name="chromosome">Chromosome to fix.</param>
+	void FixMirroringConnections(Chromosome& chromosome);
+
+	void FixOverlappingConnections(Chromosome& chromosome);
+
+	/// <summary>
+	/// Fixes the excess connections that are present.
+	/// </summary>
+	/// <param name="chromosome">Chromosome to fix.</param>
+	void FixExcessConnections(Chromosome& chromosome);
+
+	//------------------------
+	// none of these post processing methods seem to work ;-;
+
+	void ReduceExcessConnections(uint8& mask, int excessConnections);
+
+	void ValidateConnections(Chromosome& chrome);
+
+	//------------------------
+
+	/// <summary>
+	/// Wisdom of crowds is complex, but essentially, it takes all of the 
+	/// chromosomes at the end of a generations, and matches them up.
+	/// </summary>
+	void WisdomOfCrowds();
+
+	/// <summary>
+	/// Temporary Helper Function to print the board after every new generation 
+	/// For debugging purposes - to be removed
+	/// </summary>
+	void PrintBoard() const;
+
+	Direction GetOppositeDirection(Direction currentDirection);
+};
+
+class WisdomOfCrowds
+{
+	HashiBoard board;
 };
