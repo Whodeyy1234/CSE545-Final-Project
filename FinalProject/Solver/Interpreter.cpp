@@ -347,12 +347,13 @@ bool HashiBoard::BatchUpdate(BatchParams params)
 			{
 				// Iterate till a parameter that can be changed is found.
 				++batchSave.currIndex;
-				while (batchSave.currIndex < 6 && batchSave.indices[batchSave.currIndex] + 1 >= params.GetVectorSize(batchSave.currIndex))
+				while (batchSave.currIndex < static_cast<int>(BatchParams::BatchParamsVectors::MAX)
+					&& batchSave.indices[batchSave.currIndex] + 1 >= params.GetVectorSize(batchSave.currIndex))
 				{
 					++batchSave.currIndex;
 				}
 				// If found.
-				if (batchSave.currIndex < 6)
+				if (batchSave.currIndex < static_cast<int>(BatchParams::BatchParamsVectors::MAX))
 				{
 					// Reset all previous parameters and continue.
 					++batchSave.indices[batchSave.currIndex];
@@ -366,7 +367,7 @@ bool HashiBoard::BatchUpdate(BatchParams params)
 		}
 
 		// If a parameter is found.
-		if (batchSave.currIndex < 6)
+		if (batchSave.currIndex < static_cast<int>(BatchParams::BatchParamsVectors::MAX))
 		{
 			// Reset, initialize, and continue executing.
 			Reset();
