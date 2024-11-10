@@ -50,6 +50,9 @@ struct Parameters
 	float elitismPerc = 0.f;
 };
 
+/// <summary>
+/// Parameters for batch testing.
+/// </summary>
 struct BatchParams
 {
 	enum BatchParamsVectors
@@ -102,6 +105,9 @@ struct BatchParams
 	}
 };
 
+/// <summary>
+/// Save data for batch testing.
+/// </summary>
 struct BatchUpdateSave
 {
 	int currIndex = 0;
@@ -346,8 +352,6 @@ private:
 	/// <param name="bShouldClearNeighbors">Should the neighbors list be cleared out before updating? Should usually be true, but here just in case. </param>
 	void UpdateBaseNeighborInfo(Node* node, bool bShouldClearNeighbors = true);
 
-	void UpdateNeighborInfo(Node* node, Gene& gene, bool bShouldClearNeighbors = true);
-
 	/// <summary>
 	/// Gets the node at specified (y, x) coordinates. Y
 	/// Yes, I hate that they're in (y,x), but at least I'm making it clear here.
@@ -481,21 +485,6 @@ private:
 	/// <param name="chromosome">Chromosome to fix.</param>
 	void FixExcessConnections(Chromosome& chromosome);
 
-	//------------------------
-	// none of these post processing methods seem to work ;-;
-
-	void ReduceExcessConnections(uint8& mask, int excessConnections);
-
-	void ValidateConnections(Chromosome& chrome);
-
-	//------------------------
-
-	/// <summary>
-	/// Wisdom of crowds is complex, but essentially, it takes all of the 
-	/// chromosomes at the end of a generations, and matches them up.
-	/// </summary>
-	void WisdomOfCrowds();
-
 	/// <summary>
 	/// Temporary Helper Function to print the board after every new generation 
 	/// For debugging purposes - to be removed
@@ -513,7 +502,7 @@ private:
 	/// See if the path is walkable
 	/// </summary>
 	/// <returns> True if path is separated, false otherwise </returns>
-	bool isDisjoint() const;
+	bool IsDisjoint() const;
 
 	/// <summary>
 	/// Converts a string to an integer.
@@ -528,9 +517,4 @@ private:
 	/// <param name="floatString">String to convert.</param>
 	/// <returns>Converted float.</returns>
 	static float StringToFloat(string floatString);
-};
-
-class WisdomOfCrowds
-{
-	HashiBoard board;
 };

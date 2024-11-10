@@ -762,7 +762,7 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	//We have a small penalty for any nodes that have not reached their target value. 
 	int incorrectNodeValues = 0;
 	float penaltyExcessiveNode = static_cast<float>(-0.01);
-	bool disjoint = isDisjoint();
+	bool disjoint = IsDisjoint();
 	float penaltyDisjoint = static_cast<float>(-0.10);
 	//Now, we need to update each island
 	for (Node* island : islands)
@@ -1376,30 +1376,6 @@ bool HashiBoard::CheckIfUnique(const Chromosome& chromosome)
 	return true;
 }
 
-void HashiBoard::ValidateConnections(Chromosome& chrome) {
-	for (Gene& gene : chrome) {
-		Node* node = islands[gene.first];
-		int maxConnections = node->value; // max allowed connections for this node
-		int currentConnections = CalcConnectionsFromMask(gene.second);
-
-		if (currentConnections > maxConnections) {
-			// Reduce excess connections by clearing bits in the mask
-			ReduceExcessConnections(gene.second, currentConnections - maxConnections);
-		}
-	}
-}
-
-void HashiBoard::ReduceExcessConnections(uint8& mask, int excessConnections) {
-	int bitCount = 0;
-	while (excessConnections > 0 && bitCount < BITMASK_BOUNDARY * 2) {
-		if (mask & (1 << bitCount)) { // Check if the bit is set
-			mask &= ~(1 << bitCount); // Clear the bit
-			excessConnections--;
-		}
-		bitCount++;
-	}
-}
-
 void HashiBoard::FixChromosomeConnections(Chromosome& chromosome)
 {
 	// Fix mirroring connections between islands from different parents.
@@ -1579,7 +1555,7 @@ void HashiBoard::PrintBoard() const {
 	cout << endl;
 }
 
-bool HashiBoard::isDisjoint() const {
+bool HashiBoard::IsDisjoint() const {
 	if (islands.empty()) return false;
 
 	// Using DFS to check connectivity
