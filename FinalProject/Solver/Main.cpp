@@ -146,7 +146,16 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			bAlgRunning = bWithBatch ? hashiBoard->BatchUpdate(bparams) : hashiBoard->Update(params);
+			ImGui::Begin("Quitter");
+			if (ImGui::Button("Quit"))
+			{
+				bAlgRunning = false;
+			}
+			else
+			{
+				bAlgRunning = bWithBatch ? hashiBoard->BatchUpdate(bparams) : hashiBoard->Update(params);
+			}
+			ImGui::End();
 		}
 
 		// Render

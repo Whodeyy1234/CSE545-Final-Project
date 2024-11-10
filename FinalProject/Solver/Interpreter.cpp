@@ -588,11 +588,6 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 	int count = 0;
 	while (count < populationSize)
 	{
-		ClearBridgesOnBoard();
-		for (Node* node : islands)
-		{
-			UpdateBaseNeighborInfo(node);
-		}
 		// Add an empty chromosome.
 		population.push_back(FitnessChromosome(0.f, Chromosome(emptyChrome)));
 		Chromosome& chromosome = population[count].second;
@@ -754,17 +749,16 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 
 	//We give a harsh penalty to any nodes that are in an 'impossible' state.
 	int impossibleNodes = 0;
-	float penaltyImpossibleNode = static_cast<float>(-0.05);
+	float penaltyImpossibleNode = -0.05f;
 
 	//We have a penalty for any bridges that were overlapping.
 	int overlappingBridges = 0;
-	float penaltyOverlappingBridge = static_cast<float>(-0.02);
+	float penaltyOverlappingBridge = -0.02f;
 
 	//We have a small penalty for any nodes that have not reached their target value. 
 	int incorrectNodeValues = 0;
-	float penaltyExcessiveNode = static_cast<float>(-0.01);
-	bool disjoint = IsDisjoint();
-	float penaltyDisjoint = static_cast<float>(-0.10);
+	float penaltyExcessiveNode = -0.01f;
+	float penaltyDisjoint = -0.1f;
 	//Now, we need to update each island
 	for (Node* island : islands)
 	{
@@ -888,6 +882,8 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 		}
 	}
 
+	bool disjoint = IsDisjoint();
+
 	for (Gene& gene : chrome.second)
 	{
 		numRequiredConnections += islands[gene.first]->value;
@@ -901,7 +897,6 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	if (disjoint) {
 		chrome.first += penaltyDisjoint;
 	}
-
 }
 
 int HashiBoard::CalcConnectionsFromMask(uint8 connection)
