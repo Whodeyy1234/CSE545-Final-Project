@@ -63,6 +63,7 @@ bool HashiBoard::Reset()
 	islands.clear();
 	population.clear();
 	currGen = 0;
+	bestPerc = 0.f;
 
 	return true;
 }
@@ -261,10 +262,131 @@ void HashiBoard::ClearBridgesOnBoard()
 	}
 }
 
+bool HashiBoard::BatchUpdate(BatchParams params)
+{
+	// Initialization of the batch.
+	if (!batchSave.params.seed)
+	{
+		batchSave.params = { static_cast<unsigned int>(time(0)), 
+			params.populationSizes[0], 
+			params.crossoverProbs[0], 
+			params.mutationProbs[0], 
+			params.maxGenerations[0],
+			false, 
+			params.gensPerWisdoms[0], 
+			params.elitismPercs[0]};
+
+		batchSave.outputFile.open("BatchOutput.csv");
+		if (batchSave.outputFile.is_open())
+		{
+			batchSave.outputFile << "Execution Count,Seed,Generation,Solved Perc,Sec Start,Sec Iter," << 
+				"Population Size,Crossover Prob,Mutation Prob,Max Generations,With Wisdom,Gens Per Wisdom,Elitism Perc" << endl;
+		}
+		else
+		{
+			cout << "Error Opening Batch Output File!" << endl;
+			return false;
+		}
+	}
+	else
+	{
+		batchSave.params = { static_cast<unsigned int>(time(0)),
+			params.populationSizes[batchSave.indices[BatchParams::BatchParamsVectors::POPULATION_SIZES]],
+			params.crossoverProbs[batchSave.indices[BatchParams::BatchParamsVectors::CROSSOVER_PROBS]],
+			params.mutationProbs[batchSave.indices[BatchParams::BatchParamsVectors::MUTATION_PROBS]],
+			params.maxGenerations[batchSave.indices[BatchParams::BatchParamsVectors::MAX_GENERATIONS]],
+			(batchSave.executionCount % 2 != 0 ? true : false),
+			params.gensPerWisdoms[batchSave.indices[BatchParams::BatchParamsVectors::GENS_PER_WISDOM]],
+			params.elitismPercs[batchSave.indices[BatchParams::BatchParamsVectors::ELITISM_PERC]] };
+	}
+
+	// If we need to reprint the header data to the output file.
+	if (!batchSave.bOutputHeaderUpdated)
+	{
+		Parameters& refParams = batchSave.params;
+		batchSave.outputFile << ++batchSave.executionCount << ',' << refParams.seed << ",,,,," <<
+			refParams.populationSize << ',' << refParams.crossoverProb << ',' << refParams.mutationProb << ',' << refParams.maxGenerations << ',' <<
+			refParams.bWithWisdom << ',' << refParams.gensPerWisdom << ',' << refParams.elitismPerc << endl;
+		batchSave.bOutputHeaderUpdated = true;
+
+		// Helpful visualization in the console.
+		cout << "----- BATCH TESTING -----" << endl
+			<< "Execution Count:\t" << batchSave.executionCount << endl
+			<< "Population Size:\t" << batchSave.params.populationSize << endl
+			<< "Crossover Probability:\t" << batchSave.params.crossoverProb << endl
+			<< "Mutation Probability:\t" << batchSave.params.mutationProb << endl
+			<< "Maximum Generations:\t" << batchSave.params.maxGenerations << endl
+			<< "With Wisdom:\t\t" << batchSave.params.bWithWisdom << endl
+			<< "Generations per Wisdom:\t" << batchSave.params.gensPerWisdom << endl
+			<< "Elitism Percentage:\t" << batchSave.params.elitismPerc << endl
+			<< "-------------------------" << endl;
+	}
+
+	// Base update to just run 1 execution at a time.
+	bool bContinue = Update(batchSave.params);
+
+	// I fthe execution has ended.
+	if (!bContinue)
+	{
+		// Obtain the total time and output to the file.
+		chrono::duration<double> elapsedSinceStart = chrono::system_clock::now() - startTime;
+		batchSave.outputFile << "Total Time," << elapsedSinceStart.count() << endl;
+
+		// Reset the header data.
+		batchSave.bOutputHeaderUpdated = false;
+		// If we haven't ran on wisdom yet, ignore.
+		if (batchSave.executionCount % 2 == 0)
+		{
+			// Increment the current parameters testing.
+			if (batchSave.indices[batchSave.currIndex] + 1 < params.GetVectorSize(batchSave.currIndex))
+			{
+				++batchSave.indices[batchSave.currIndex];
+			}
+			// If we can't, move to the next parameter.
+			else
+			{
+				// Iterate till a parameter that can be changed is found.
+				++batchSave.currIndex;
+				while (batchSave.currIndex < 6 && batchSave.indices[batchSave.currIndex] + 1 >= params.GetVectorSize(batchSave.currIndex))
+				{
+					++batchSave.currIndex;
+				}
+				// If found.
+				if (batchSave.currIndex < 6)
+				{
+					// Reset all previous parameters and continue.
+					++batchSave.indices[batchSave.currIndex];
+					for (--batchSave.currIndex; batchSave.currIndex >= 0; --batchSave.currIndex)
+					{
+						batchSave.indices[batchSave.currIndex] = 0;
+					}
+					++batchSave.currIndex;
+				}
+			}
+		}
+
+		// If a parameter is found.
+		if (batchSave.currIndex < 6)
+		{
+			// Reset, initialize, and continue executing.
+			Reset();
+			Initialize(params.puzzleFilePath);
+			bContinue = true;
+		}
+		else
+		{
+			// Otherwise, close the file and do nothing to bContinue.
+			batchSave.outputFile.close();
+		}
+	}
+
+	return bContinue;
+}
+
 bool HashiBoard::Update(Parameters params)
 {
 	// Process the algorithm.
-	bool bFinished = Process(params);
+	bool bContinue = Process(params);
 
 	// Find the chromosome with the best completion percentage.
 	Population::iterator Iter = find_if(population.begin(), population.end(),
@@ -325,7 +447,7 @@ bool HashiBoard::Update(Parameters params)
 		}
 	}
 
-	return bFinished;
+	return bContinue;
 }
 
 bool HashiBoard::Process(Parameters params)
@@ -401,13 +523,31 @@ bool HashiBoard::Process(Parameters params)
 	if (population[0].first != bestPerc)
 	{
 		bestPerc = population[0].first;
-		outputFile << currGen << "," << bestPerc << endl;
+		// Obtain some time data.
+		chrono::time_point<chrono::system_clock> now = chrono::system_clock::now();
+		chrono::duration<double> elapsedSinceStart = now - startTime;
+		chrono::duration<double> elapsedSinceIter = now - iterTime;
+		iterTime = now;
+		// If not batch testing.
+		if(!batchSave.outputFile.is_open())
+		{
+			outputFile << currGen << ',' << bestPerc << ',' << elapsedSinceStart.count() << ',' << elapsedSinceIter.count() << endl;
+		}
+		else
+		{
+			batchSave.outputFile << ",," << currGen << ',' << bestPerc << ',' << elapsedSinceStart.count() << ',' << elapsedSinceIter.count() << ",,,,,,, " << endl;
+		}
 	}
 	// Ending condition.
 	if (bestPerc >= 1.f || currGen > params.maxGenerations)
 	{
-		outputFile.close();
-		//EvaluateChromosome(population[0]);
+		chrono::duration<double> elapsedSinceStart = chrono::system_clock::now() - startTime;
+		// If not batch testing.
+		if(!batchSave.outputFile.is_open())
+		{
+			outputFile << "Total Time," << elapsedSinceStart.count() << endl;
+			outputFile.close();
+		}
 		
 		cout << "Generation: " << currGen << "| Fitness: " << bestPerc << endl;
 		PrintBoard();
@@ -422,12 +562,18 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 	// Seed the random generator.
 	cout << "Seed: " << seed << endl;
 	srand(seed);
-
-	outputFile.open("Output.csv");
-	if (outputFile.is_open())
+	// Obtain time data.
+	startTime = chrono::system_clock::now();
+	iterTime = startTime;
+	// If not batch testing.
+	if(!batchSave.outputFile.is_open())
 	{
-		outputFile << "Seed," << seed << endl;
-		outputFile << "Generation,Solved Perc" << endl;
+		outputFile.open("Output.csv");
+		if (outputFile.is_open())
+		{
+			outputFile << "Seed," << seed << endl;
+			outputFile << "Generation,Solved Perc,Sec Start,Sec Iter" << endl;
+		}
 	}
 
 	// Create an empty chromosome.
@@ -441,6 +587,11 @@ bool HashiBoard::InitializePopulation(int populationSize, unsigned int seed)
 	int count = 0;
 	while (count < populationSize)
 	{
+		ClearBridgesOnBoard();
+		for (Node* node : islands)
+		{
+			UpdateBaseNeighborInfo(node);
+		}
 		// Add an empty chromosome.
 		population.push_back(FitnessChromosome(0.f, Chromosome(emptyChrome)));
 		Chromosome& chromosome = population[count].second;
@@ -1451,6 +1602,74 @@ bool HashiBoard::isDisjoint() const {
 
 	// Check if all nodes were visited
 	return visited.size() != islands.size();
+}
+
+void HashiBoard::ParseIntString(string intsString, vector<int>& ints)
+{
+	string tmp = intsString;
+	stringstream ss(tmp);
+	string token;
+	while (getline(ss, token, ','))
+	{
+		int i = StringToInt(token);
+		ints.push_back(i);
+	}
+}
+
+void HashiBoard::ParseFloatString(string floatsString, vector<float>& floats)
+{
+	string tmp = floatsString;
+	stringstream ss(tmp);
+	string token;
+	while (getline(ss, token, ','))
+	{
+		float f = StringToFloat(token);
+		floats.push_back(f);
+	}
+}
+
+int HashiBoard::StringToInt(string intString)
+{
+	int i = 0;
+	int digits = 0;
+	string str = intString;
+	while (!str.empty())
+	{
+		char c = str.back(); str.pop_back();
+		i += ASCII_ATOI(c) * (digits ? static_cast<int>(pow(10, digits)) : 1);
+		++digits;
+	}
+	return i;
+}
+
+float HashiBoard::StringToFloat(string floatString)
+{
+	int whole = 0;
+	int wholeCount = 0;
+	int decimal = 0;
+	int decimalCount = 0;
+	string str = floatString;
+	bool bDecimalFound = false;
+	while (!str.empty())
+	{
+		char c = str.back(); str.pop_back();
+		if (c == '.')
+		{
+			bDecimalFound = true;
+			continue;
+		}
+		if (!bDecimalFound)
+		{
+			decimal += ASCII_ATOI(c) * (decimalCount ? static_cast<int>(pow(10, decimalCount)) : 1);
+			++decimalCount;
+		}
+		else
+		{
+			whole += ASCII_ATOI(c) * (wholeCount ? static_cast<int>(pow(10, wholeCount)) : 1);
+			++wholeCount;
+		}
+	}
+	return static_cast<float>(whole) + (static_cast<float>(decimal) / static_cast<float>(pow(10, decimalCount)));
 }
 
 Direction HashiBoard::GetOppositeDirection(Direction currentDirection)

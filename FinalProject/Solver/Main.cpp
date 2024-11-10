@@ -29,20 +29,31 @@ int main(int argc, char* argv[])
 
 	HashiBoard* hashiBoard = new HashiBoard();
 	Parameters params;
+	BatchParams bparams;
 
 	// ImGui Variables - Start ===============
-	string filePath = "";				// File path to the board.
+	string filePath = "";					// File path to the board.
 	// Algorithm Parameters - Start ==========
-	bool bWithSeed = false;
-	int seed = static_cast<int>(time(0));
-	int populationSize = 200;			// Size of the population.
-	float crossoverProb = 0.7f;			// Probability a crossover occurs.
-	float mutationProb = 0.05f;			// Probability a mutation occurs.
-	int maxGenerations = 2000;			// The max generations the algorithm runs.
-	bool bWithWisdom = false;			// Whether or not to use Wisdom of Crowds
-	int gensPerWisdom = 50;				// The number of generations between each wisdom path.
-	float elitismPerc = 0.3f;			// The percentage of best paths to use.
+	bool bWithSeed = false;					// Whether or not to seed the random generator.
+	int seed = static_cast<int>(time(0));	// Seed of the random generator.
+	int populationSize = 200;				// Size of the population.
+	float crossoverProb = 0.7f;				// Probability a crossover occurs.
+	float mutationProb = 0.05f;				// Probability a mutation occurs.
+	int maxGenerations = 2000;				// The max generations the algorithm runs.
+	bool bWithWisdom = false;				// Whether or not to use Wisdom of Crowds
+	int gensPerWisdom = 50;					// The number of generations between each wisdom path.
+	float elitismPerc = 0.3f;				// The percentage of best paths to use.
 	// Algorithm Parameters - End ============
+	// Batch Testing Parameters - Start ======
+	bool bWithBatch = false;
+	int numExectuions = 1;
+	string populationSizes = "";
+	string crossoverProbs = "";
+	string mutationProbs = "";
+	string smaxGenerations = "";
+	string gensPerWisdoms = "";
+	string elitismPercs = "";
+	// Batch Testing Parameters - End ========
 	bool bAlgRunning = false;
 	// ImGui Variables - End =================
 
@@ -97,9 +108,37 @@ int main(int argc, char* argv[])
 				}
 			}
 
+			if (ImGui::CollapsingHeader("Batch Testing Parameters", ImGuiTreeNodeFlags_None))
+			{
+				ImGui::Checkbox("Perform Batch Testing", &bWithBatch);
+				if (bWithBatch)
+				{
+					ImGui::Text("Input Format: #,#,#,...");
+					ImGui::InputText("Population Sizes", &populationSizes);
+					ImGui::InputText("Crossover Probabilities", &crossoverProbs);
+					ImGui::InputText("Mutation Probabilities", &mutationProbs);
+					ImGui::InputText("Maximum Generations", &smaxGenerations);
+					ImGui::InputText("Generations Per Wisdoms", &gensPerWisdoms);
+					ImGui::InputText("Elitism Percentages", &elitismPercs);
+				}
+			}
+
 			if (ImGui::Button("Run"))
 			{
-				params = { static_cast<unsigned int>(bWithSeed ? seed : time(0)), populationSize, crossoverProb, mutationProb, maxGenerations, bWithWisdom, gensPerWisdom, elitismPerc };
+				if (!bWithBatch)
+				{
+					params = { static_cast<unsigned int>(bWithSeed ? seed : time(0)), populationSize, crossoverProb, mutationProb, maxGenerations, bWithWisdom, gensPerWisdom, elitismPerc };
+				}
+				else
+				{
+					bparams.puzzleFilePath = filePath;
+					HashiBoard::ParseIntString(populationSizes, bparams.populationSizes);
+					HashiBoard::ParseFloatString(crossoverProbs, bparams.crossoverProbs);
+					HashiBoard::ParseFloatString(mutationProbs, bparams.mutationProbs);
+					HashiBoard::ParseIntString(smaxGenerations, bparams.maxGenerations);
+					HashiBoard::ParseIntString(gensPerWisdoms, bparams.gensPerWisdoms);
+					HashiBoard::ParseFloatString(elitismPercs, bparams.elitismPercs);
+				}
 				bAlgRunning = true;
 			}
 
@@ -107,7 +146,7 @@ int main(int argc, char* argv[])
 		}
 		else
 		{
-			bAlgRunning = hashiBoard->Update(params);
+			bAlgRunning = bWithBatch ? hashiBoard->BatchUpdate(bparams) : hashiBoard->Update(params);
 		}
 
 		// Render

@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <chrono>
 #include <SDL2Singleton.h>
 #include <unordered_set>
 #include <stack>
@@ -39,14 +40,78 @@ enum class Direction : int
 /// </summary>
 struct Parameters
 {
-	unsigned int seed;
-	int populationSize;
-	float crossoverProb;
-	float mutationProb;
-	int maxGenerations;
-	bool bWithWisdom;
-	int gensPerWisdom;
-	float elitismPerc;
+	unsigned int seed = 0;
+	int populationSize = 0;
+	float crossoverProb = 0.f;
+	float mutationProb = 0.f;
+	int maxGenerations = 0;
+	bool bWithWisdom = false;
+	int gensPerWisdom = 0;
+	float elitismPerc = 0.f;
+};
+
+struct BatchParams
+{
+	enum BatchParamsVectors
+	{
+		INVALID = -1,
+		ELITISM_PERC = 0,
+		GENS_PER_WISDOM = 1,
+		MAX_GENERATIONS = 2,
+		MUTATION_PROBS = 3,
+		CROSSOVER_PROBS = 4,
+		POPULATION_SIZES = 5,
+		MAX
+	};
+
+	string puzzleFilePath = "";
+	vector<int> populationSizes;
+	vector<float> crossoverProbs;
+	vector<float> mutationProbs;
+	vector<int> maxGenerations;
+	vector<int> gensPerWisdoms;
+	vector<float> elitismPercs;
+
+	const int GetVectorSize(int index)
+	{
+		size_t size = 0;
+		switch (static_cast<BatchParamsVectors>(index))
+		{
+		case BatchParamsVectors::ELITISM_PERC:
+			size = elitismPercs.size();
+			break;
+		case BatchParamsVectors::GENS_PER_WISDOM:
+			size = gensPerWisdoms.size();
+			break;
+		case BatchParamsVectors::MAX_GENERATIONS:
+			size = maxGenerations.size();
+			break;
+		case BatchParamsVectors::MUTATION_PROBS:
+			size = mutationProbs.size();
+			break;
+		case BatchParamsVectors::CROSSOVER_PROBS:
+			size = crossoverProbs.size();
+			break;
+		case BatchParamsVectors::POPULATION_SIZES:
+			size = populationSizes.size();
+			break;
+		default:
+			return 0;
+		}
+		return static_cast<int>(size);
+	}
+};
+
+struct BatchUpdateSave
+{
+	int currIndex = 0;
+	vector<int> indices = { 0, 0, 0, 0, 0, 0 };
+	int executionCount = 0;
+
+	struct Parameters params;
+
+	ofstream outputFile;
+	bool bOutputHeaderUpdated = false;
 };
 
 /// <summary>
@@ -173,6 +238,27 @@ public:
 	/// <returns>Whether or not to continue updating.</returns>
 	bool Update(Parameters params);
 
+	/// <summary>
+	/// Updates based off of batch testing.
+	/// </summary>
+	/// <param name="params">Batch parameters for batch testing.</param>
+	/// <returns>Whether or not to continue executing.</returns>
+	bool BatchUpdate(BatchParams params);
+
+	/// <summary>
+	/// Parses a string to a vector of integers.
+	/// </summary>
+	/// <param name="intsString">String to parse.</param>
+	/// <param name="ints">Integers vector.</param>
+	static void ParseIntString(string intsString, vector<int>& ints);
+
+	/// <summary>
+	/// Parses a string to a vector of floats.
+	/// </summary>
+	/// <param name="floatsString">String to parse.</param>
+	/// <param name="floats">Floats vector.</param>
+	static void ParseFloatString(string floatsString, vector<float>& floats);
+
 private:
 	/// <summary>
 	/// Texture to render to.
@@ -198,6 +284,21 @@ private:
 	/// Outpus csv of the algorithm.
 	/// </summary>
 	ofstream outputFile;
+
+	/// <summary>
+	/// Save data for batch testing.
+	/// </summary>
+	BatchUpdateSave batchSave;
+
+	/// <summary>
+	/// Start time for a single iteration.
+	/// </summary>
+	chrono::time_point<chrono::system_clock> startTime;
+
+	/// <summary>
+	/// Time of the current generation.
+	/// </summary>
+	chrono::time_point<chrono::system_clock> iterTime;
 
 	// Useful typedef for less typing.
 	typedef uint8_t uint8;
@@ -413,6 +514,20 @@ private:
 	/// </summary>
 	/// <returns> True if path is separated, false otherwise </returns>
 	bool isDisjoint() const;
+
+	/// <summary>
+	/// Converts a string to an integer.
+	/// </summary>
+	/// <param name="intString">String to convert.</param>
+	/// <returns>Converted integer.</returns>
+	static int StringToInt(string intString);
+
+	/// <summary>
+	/// Converts a string to a float.
+	/// </summary>
+	/// <param name="floatString">String to convert.</param>
+	/// <returns>Converted float.</returns>
+	static float StringToFloat(string floatString);
 };
 
 class WisdomOfCrowds
