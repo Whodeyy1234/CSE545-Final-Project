@@ -378,6 +378,14 @@ bool HashiBoard::BatchUpdate(BatchParams params)
 		{
 			// Otherwise, close the file and do nothing to bContinue.
 			batchSave.outputFile.close();
+			batchSave.bOutputHeaderUpdated = false;
+			batchSave.currIndex = 0;
+			batchSave.executionCount = 0;
+			for (int& index : batchSave.indices)
+			{
+				index = 0;
+			}
+			batchSave.params = Parameters();
 		}
 	}
 
@@ -479,7 +487,7 @@ bool HashiBoard::Process(Parameters params)
 				crossoverChromes[crossoverChromes.size() - 1].second = i;
 			}
 		}
-		else if (perc < params.mutationProb)
+		if (perc < params.mutationProb)
 		{
 			mutationChromes.push_back(i);
 		}
@@ -540,7 +548,7 @@ bool HashiBoard::Process(Parameters params)
 		}
 	}
 	// Ending condition.
-	if (bestPerc >= 1.f || currGen > params.maxGenerations)
+	if (bestPerc >= 1.f || currGen >= params.maxGenerations)
 	{
 		chrono::duration<double> elapsedSinceStart = chrono::system_clock::now() - startTime;
 		// If not batch testing.
@@ -616,6 +624,7 @@ void HashiBoard::InitializeIslandConnections(int id, uint8& connection, Chromoso
 	while (numIterations-- && numConnections < island->value)
 	{
 		// Obtain a random neighbor and associated values.
+		if(island->neighbors.size() <= 0) continue;
 		int randNeighbor = static_cast<int>(rand() % island->neighbors.size());
 		Neighbor* nb = island->neighbors[randNeighbor];
 		Chromosome::iterator Iter = find_if(chrome.begin(), chrome.end(),
@@ -882,21 +891,19 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 		}
 	}
 
-	bool disjoint = IsDisjoint();
-
 	for (Gene& gene : chrome.second)
 	{
 		numRequiredConnections += islands[gene.first]->value;
 		numAcquiredConnections += CalcConnectionsFromMask(gene.second);
 	}
 
+	int disjointCount = IsDisjoint();
+
 	chrome.first = static_cast<float>(numAcquiredConnections) / numRequiredConnections;
 	chrome.first += penaltyImpossibleNode * impossibleNodes;
 	chrome.first += penaltyOverlappingBridge * overlappingBridges;
 	chrome.first += penaltyExcessiveNode * incorrectNodeValues;
-	if (disjoint) {
-		chrome.first += penaltyDisjoint;
-	}
+	chrome.first += penaltyDisjoint * disjointCount;
 }
 
 int HashiBoard::CalcConnectionsFromMask(uint8 connection)
@@ -1101,10 +1108,6 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 		{
 			FitnessChromosome fChild1 = { 0.f, child1 };
 			EvaluateChromosome(fChild1);
-			if (fChild1.first > 0.99f)
-			{
-				cout << "foo";
-			}
 			population.push_back(fChild1);
 		}
 
@@ -1112,10 +1115,6 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 		{
 			FitnessChromosome fChild2 = { 0.f, child2 };
 			EvaluateChromosome(fChild2);
-			if (fChild2.first > 0.99f)
-			{
-				cout << "foo";
-			}
 			population.push_back(fChild2);
 		}
 	}
@@ -1127,10 +1126,12 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 		Chromosome& chromosome = population[chromeIndex].second;
 
 		// Randomly mutate genes in the chromosome
-		for (Gene& gene : chromosome) {
+		for (Gene& gene : chromosome) 
+		{
 			uint8& connection = gene.second;
 			int bitToToggle;
 			Node* node = islands[gene.first];
+			if (node->neighbors.empty()) continue;
 			bool bFoundBit = false;
 			Direction dir = Direction::INVALID;
 			Neighbor* nb = nullptr;
@@ -1138,7 +1139,7 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 			{
 				bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
 				dir = static_cast<Direction>(bitToToggle % BITMASK_BOUNDARY);
-
+				
 				// Test that the bit direction is valid.
 				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
 					[&dir](const Neighbor* n)
@@ -1376,8 +1377,6 @@ void HashiBoard::FixChromosomeConnections(Chromosome& chromosome)
 {
 	// Fix mirroring connections between islands from different parents.
 	FixMirroringConnections(chromosome);
-	// Fix overlapping connections.
-	FixOverlappingConnections(chromosome);
 	// Fix excess connections that violate the island value.
 	FixExcessConnections(chromosome);
 }
@@ -1454,11 +1453,6 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 	}
 }
 
-void HashiBoard::FixOverlappingConnections(Chromosome& chromosome)
-{
-
-}
-
 void HashiBoard::FixExcessConnections(Chromosome& chromosome)
 {
 	for (Gene& gene : chromosome)
@@ -1472,7 +1466,7 @@ void HashiBoard::FixExcessConnections(Chromosome& chromosome)
 			// Randomly select a bit to turn off to reduce the number of connections.
 			int bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
 			// Ensure the bit to turn off is set.
-			while (!(mask & (1 << bitToTurnOff)))
+			while (!(mask & (1 << bitToTurnOff)) && bitToTurnOff < BITMASK_BOUNDARY)
 			{
 				bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
 			}
@@ -1551,29 +1545,36 @@ void HashiBoard::PrintBoard() const {
 	cout << endl;
 }
 
-bool HashiBoard::IsDisjoint() const {
+int HashiBoard::IsDisjoint() const {
 	if (islands.empty()) return false;
 
-	// Using DFS to check connectivity
 	unordered_set<int> visited;
 	stack<Node*> nodeStack;
-	nodeStack.push(islands[0]);
-	visited.insert(islands[0]->nodeID);
+	int disjointGroups = 0;
 
-	while (!nodeStack.empty()) {
-		Node* current = nodeStack.top();
-		nodeStack.pop();
+	for(Node* node : islands)
+	{
+		if (visited.find(node->nodeID) != visited.end()) continue;
+		// Using DFS to check connectivity
+		nodeStack.push(node);
+		visited.insert(node->nodeID);
 
-		for (Neighbor* neighbor : current->neighbors) {
-			if (neighbor->numOfBridges > 0 && visited.find(neighbor->neighborNode->nodeID) == visited.end()) {
-				visited.insert(neighbor->neighborNode->nodeID);
-				nodeStack.push(neighbor->neighborNode);
+		while (!nodeStack.empty()) {
+			Node* current = nodeStack.top();
+			nodeStack.pop();
+
+			for (Neighbor* neighbor : current->neighbors) {
+				if (neighbor->numOfBridges > 0 && visited.find(neighbor->neighborNode->nodeID) == visited.end()) {
+					visited.insert(neighbor->neighborNode->nodeID);
+					nodeStack.push(neighbor->neighborNode);
+				}
 			}
 		}
+		++disjointGroups;
 	}
 
 	// Check if all nodes were visited
-	return visited.size() != islands.size();
+	return disjointGroups - 1;
 }
 
 void HashiBoard::ParseIntString(string intsString, vector<int>& ints)

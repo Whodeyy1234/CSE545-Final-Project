@@ -477,8 +477,6 @@ private:
 	/// <param name="chromosome">Chromosome to fix.</param>
 	void FixMirroringConnections(Chromosome& chromosome);
 
-	void FixOverlappingConnections(Chromosome& chromosome);
-
 	/// <summary>
 	/// Fixes the excess connections that are present.
 	/// </summary>
@@ -502,7 +500,7 @@ private:
 	/// See if the path is walkable
 	/// </summary>
 	/// <returns> True if path is separated, false otherwise </returns>
-	bool IsDisjoint() const;
+	int IsDisjoint() const;
 
 	/// <summary>
 	/// Converts a string to an integer.
