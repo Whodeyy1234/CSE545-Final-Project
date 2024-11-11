@@ -1123,127 +1123,97 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 	}
 }
 
-void HashiBoard::PerformMutation(const vector<int>& mutationChromes) 
-{
-	for (int chromeIndex : mutationChromes) 
-	{
+vector<int> HashiBoard::GetUnsatisfiedNodes(const Chromosome& chromosome) {
+	vector<int> unsatisfiedNodes;
+	for (int i = 0; i < islands.size(); ++i) {
+		Node* node = islands[i];
+		int totalConnections = CalcConnectionsFromMask(chromosome[i].second);
+		if (totalConnections != node->value) {
+			unsatisfiedNodes.push_back(i);
+		}
+	}
+	return unsatisfiedNodes;
+}
+void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
+	for (int chromeIndex : mutationChromes) {
+		Chromosome& chromosome = population[chromeIndex].second;
+		vector<int> unsatisfiedNodes = GetUnsatisfiedNodes(chromosome);
+
+		// Clear bridges and update base neighbor info
 		ClearBridgesOnBoard();
-		for (Node* node : islands)
-		{
+		for (Node* node : islands) {
 			UpdateBaseNeighborInfo(node);
 		}
 
-		Chromosome& chromosome = population[chromeIndex].second;
+		// Only mutate unsatisfied nodes to attempt valid connections
+		for (int nodeId : unsatisfiedNodes) {
+			Node* node = islands[nodeId];
+			Gene& gene = *find_if(chromosome.begin(), chromosome.end(),
+				[nodeId](const Gene& g) { return g.first == nodeId; });
 
-		// Randomly mutate genes in the chromosome
-		for (Gene& gene : chromosome) 
-		{
+			// Toggle connections for the unsatisfied node
 			uint8& connection = gene.second;
 			int bitToToggle;
-			Node* node = islands[gene.first];
-			if (node->neighbors.empty()) continue;
-			bool bFoundBit = false;
-			Direction dir = Direction::INVALID;
 			Neighbor* nb = nullptr;
-			do
-			{
+			bool bFoundBit = false;
+			do {
 				bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
-				dir = static_cast<Direction>(bitToToggle % BITMASK_BOUNDARY);
-				
-				// Test that the bit direction is valid.
-				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
-					[&dir](const Neighbor* n)
-					{
-						return n->neighborDirection == dir;
-					});
-				if (iter == node->neighbors.end())
-				{
+				Direction dir = static_cast<Direction>(bitToToggle % BITMASK_BOUNDARY);
+
+				auto iter = find_if(node->neighbors.begin(), node->neighbors.end(),
+					[&dir](const Neighbor* n) { return n->neighborDirection == dir; });
+				if (iter == node->neighbors.end()) {
 					bFoundBit = false;
 				}
-				else
-				{
+				else {
 					bFoundBit = true;
 					nb = *iter;
 				}
-			}
-			while (!bFoundBit && !nb);
-			bool bBitCleared = (gene.second >> bitToToggle) & 1;
-			connection ^= (1 << bitToToggle);
+			} while (!bFoundBit && !nb);
 
-			// Also toggle the corresponding bit in the neighbor's gene
-			Gene* nbGene = nullptr;
-			Chromosome::iterator cIter = find_if(chromosome.begin(), chromosome.end(),
-				[&nb](const Gene& g)
-				{
-					return g.first == nb->neighborNode->nodeID;
-				});
-			if (cIter != chromosome.end())
-			{
-				nbGene = &(*cIter);
+			// Ensure we update the bridge correctly
+			int singleBit = bitToToggle % BITMASK_BOUNDARY;
+			int doubleBit = singleBit + BITMASK_BOUNDARY;
+			if ((connection & (1 << singleBit)) && !(connection & (1 << doubleBit))) {
+				// If there's a single bridge, upgrade to a double bridge
+				connection |= (1 << doubleBit);  // Set double bridge bit
+				connection &= ~(1 << singleBit); // Clear single bridge bit
 			}
-			
-			if (nbGene)
-			{
-				int shift = (bitToToggle < BITMASK_BOUNDARY ? ((bitToToggle % BITMASK_BOUNDARY) ^ 1) : (((bitToToggle % BITMASK_BOUNDARY) ^ 1) + BITMASK_BOUNDARY));
-				nbGene->second ^= (1 << shift);
+			else if (!(connection & (1 << singleBit)) && (connection & (1 << doubleBit))) {
+				// If there's a double bridge, downgrade to a single bridge
+				connection &= ~(1 << doubleBit); // Clear double bridge bit
+				connection |= (1 << singleBit);  // Set single bridge bit
+			}
+			else {
+				// Toggle the selected bit as per mutation logic
+				connection ^= (1 << bitToToggle);
 			}
 
-			if (bBitCleared)
-			{
-				int bitToSet;
-				Direction newDir;
-				bFoundBit = false;
-				do
-				{
-					bitToSet = rand() % (2 * BITMASK_BOUNDARY);
-					newDir = static_cast<Direction>(bitToSet % BITMASK_BOUNDARY);
+			// Update the neighbor’s gene for consistency, ensuring alignment
+			if (nb) {
+				int neighborShift = (bitToToggle < BITMASK_BOUNDARY ?
+					((bitToToggle % BITMASK_BOUNDARY) ^ 1) :
+					(((bitToToggle % BITMASK_BOUNDARY) ^ 1) + BITMASK_BOUNDARY));
+				Gene* nbGene = &(*find_if(chromosome.begin(), chromosome.end(),
+					[&nb](const Gene& g) { return g.first == nb->neighborNode->nodeID; }));
 
-					// Test that the bit direction is valid.
-					vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
-						[&newDir](const Neighbor* n)
-						{
-							return n->neighborDirection == newDir;
-						});
-					if (iter == node->neighbors.end())
-					{
-						bFoundBit = false;
-					}
-					else
-					{
-						bFoundBit = true;
-						nb = *iter;
-					}
-				} while (newDir != dir || (gene.second >> bitToSet) & 1);
-
-				if (nb)
-				{
-					gene.second ^= (1 << bitToSet);
-
-					// Also toggle the corresponding bit in the neighbor's gene
-					nbGene = nullptr;
-					Chromosome::iterator c2Iter = find_if(chromosome.begin(), chromosome.end(),
-						[&nb](const Gene& g)
-						{
-							return g.first == nb->neighborNode->nodeID;
-						});
-					if (c2Iter != chromosome.end())
-					{
-						nbGene = &(*c2Iter);
-					}
-
-					if (nbGene)
-					{
-						int shift = (bitToSet < BITMASK_BOUNDARY ? ((bitToSet % BITMASK_BOUNDARY) ^ 1) : (((bitToSet % BITMASK_BOUNDARY) ^ 1) + BITMASK_BOUNDARY));
-						nbGene->second ^= (1 << shift);
-					}
+				// Align neighbor bit to ensure symmetric connection
+				if (connection & (1 << bitToToggle)) {
+					nbGene->second |= (1 << neighborShift);  // Set the bit on the neighbor
+				}
+				else {
+					nbGene->second &= ~(1 << neighborShift); // Clear the bit on the neighbor
 				}
 			}
 		}
 
+		// Fix connections to ensure all bridge toggles are consistent
 		FixChromosomeConnections(chromosome);
 		EvaluateChromosome(population[chromeIndex]);
 	}
 }
+
+
 
 void HashiBoard::PerformWisdomOfCrowds(float elitismPerc)
 {
@@ -1471,7 +1441,29 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 		Node* node = islands[gene.first];
 		//Before we start looking at mirroring connections, we need
 		//to make sure that all the node's neighbors exist, even if
-		//they might actually be hit by overlapping bridges.
+		//they might actually be hit by overlapping bridges.// Useful typedef for less typing.
+		typedef uint8_t uint8;
+		// A gene is a pair of integer and uint8.
+		// Integer defines the id of the island.
+		// Uint8 defines the bridge connections:
+		// Upper word - Defines double connections.
+		// Lower word - Defines single connections.
+		// E.x.
+		// UDRL UDRL
+		// 0100 1011
+		// Upper word - Double connection down.
+		// Lower word - Single connection up, right, and left.
+		typedef pair<int, uint8> Gene;
+		// A chromosome is a collection of genes and how close they are to a solution.
+		typedef vector<Gene> Chromosome;
+		typedef pair<float, Chromosome> FitnessChromosome;
+		// A population is a collection of chromosomes.
+		typedef vector<FitnessChromosome> Population;
+
+		/// <summary>
+		/// Population to be used in the algorithm.
+		/// </summary>
+		Population population;
 		 
 		//This will get checked and penalized later on, but for now, keep them.
 		ClearBridgesOnBoard();

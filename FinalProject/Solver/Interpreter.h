@@ -515,4 +515,7 @@ private:
 	/// <param name="floatString">String to convert.</param>
 	/// <returns>Converted float.</returns>
 	static float StringToFloat(string floatString);
+
+
+	vector<int> GetUnsatisfiedNodes(const Chromosome& chromosome);
 };
