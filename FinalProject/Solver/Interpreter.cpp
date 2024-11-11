@@ -492,16 +492,29 @@ bool HashiBoard::Process(Parameters params)
 			mutationChromes.push_back(i);
 		}
 	}
+
+	numCrossoverChromes = 0;
+	numMutatedChromes = 0;
+	mutationAvgFitness = 0.0;
+	crossoverAvgFitness = 0.0;
 	// Performing crossovers and mutations.
 	if (crossoverChromes.size())
 	{
 		PerformCrossover(crossoverChromes);
+		crossoverAvgFitness = crossoverAvgFitness / numCrossoverChromes;
 	}
 
 	if (mutationChromes.size())
 	{
-		PerformMutation(mutationChromes);
+		PerformMutation(mutationChromes, params);
+		mutationAvgFitness = mutationAvgFitness / numMutatedChromes;
 	}
+
+	cout << "Generation: " << currGen << endl;
+	cout << "Avg Crossover Fitness: " << crossoverAvgFitness << endl;
+	cout << "Avg Mutation Fitness:  " << mutationAvgFitness << endl;
+	cout << "=====================\n\n";
+ 
 	// Evaluate fitness.
 	for (FitnessChromosome& chrome : population)
 	{
@@ -697,8 +710,11 @@ void HashiBoard::RemakeIslandConnections(Chromosome& chrome)
 	// Obtain the island and some helpful values.
 	ClearBridgesOnBoard();
 
+	Chromosome shuffleChrome = chrome;
+	random_shuffle(shuffleChrome.begin(), shuffleChrome.end());
+
 	// Iterate through the genes to populate the board.
-	for (Gene& gene : chrome)
+	for (Gene& gene : shuffleChrome)
 	{
 		uint8 mask = gene.second;
 		Node* node = islands[gene.first];
@@ -1109,6 +1125,8 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 			FitnessChromosome fChild1 = { 0.f, child1 };
 			EvaluateChromosome(fChild1);
 			population.push_back(fChild1);
+			crossoverAvgFitness += fChild1.first;
+			numCrossoverChromes++;
 		}
 
 		if (CheckIfUnique(child2))
@@ -1116,18 +1134,29 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 			FitnessChromosome fChild2 = { 0.f, child2 };
 			EvaluateChromosome(fChild2);
 			population.push_back(fChild2);
+			crossoverAvgFitness += fChild2.first;
+			numCrossoverChromes++;
 		}
 	}
 }
 
-void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
+void HashiBoard::PerformMutation(const vector<int>& mutationChromes, Parameters params)
+{
 	for (int chromeIndex : mutationChromes) 
 	{
 		Chromosome& chromosome = population[chromeIndex].second;
+		Chromosome shufflechromosome = chromosome;
+		random_shuffle(shufflechromosome.begin(), shufflechromosome.end());
 
-		// Randomly mutate genes in the chromosome
-		for (Gene& gene : chromosome) 
+		// Randomly mutate genes in the chromosome in a random order
+		for (Gene& gene : shufflechromosome)
 		{
+			//Might want to make a seperate mutation chance for a node that's been selected to be mutated?
+			float perc = static_cast<float>(rand()) / RAND_MAX;
+			if (perc > params.mutationProb)
+			{
+				continue;
+			}
 			uint8& connection = gene.second;
 			int bitToToggle;
 			Node* node = islands[gene.first];
@@ -1180,6 +1209,8 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes) {
 
 		FixChromosomeConnections(chromosome);
 		EvaluateChromosome(population[chromeIndex]);
+		mutationAvgFitness += population[chromeIndex].first;
+		numMutatedChromes++;
 	}
 }
 
