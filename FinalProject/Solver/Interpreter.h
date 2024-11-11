@@ -8,6 +8,7 @@
 #include <SDL2Singleton.h>
 #include <unordered_set>
 #include <stack>
+#include <math.h>
 #pragma once
 using namespace std;
 

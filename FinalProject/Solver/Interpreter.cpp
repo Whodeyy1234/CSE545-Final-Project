@@ -473,8 +473,10 @@ bool HashiBoard::Process(Parameters params)
 	// Determining crossovers and mutations.
 	for (int i = 0; i < population.size(); ++i)
 	{
+		//if (population[i].first < 0.6f) continue;
+
 		float perc = static_cast<float>(rand()) / RAND_MAX;
-		if (perc < params.crossoverProb/* && population[i].first >= 0.6f*/)
+		if (perc < params.crossoverProb)
 		{
 			if (!bCrossoverStarted)
 			{
@@ -487,6 +489,7 @@ bool HashiBoard::Process(Parameters params)
 				crossoverChromes[crossoverChromes.size() - 1].second = i;
 			}
 		}
+		//if (population[i].first < 0.6f) continue;
 		if (perc < params.mutationProb)
 		{
 			mutationChromes.push_back(i);
@@ -765,12 +768,12 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 
 	//We have a penalty for any bridges that were overlapping.
 	int overlappingBridges = 0;
-	float penaltyOverlappingBridge = -0.02f;
+	float penaltyOverlappingBridge = -0.05f;
 
 	//We have a small penalty for any nodes that have not reached their target value. 
 	int incorrectNodeValues = 0;
-	float penaltyExcessiveNode = -0.01f;
-	float penaltyDisjoint = -0.1f;
+	float penaltyExcessiveNode = -0.05f;
+	float penaltyDisjoint = -0.2f;
 	//Now, we need to update each island
 	for (Node* island : islands)
 	{
@@ -898,6 +901,24 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	{
 		numRequiredConnections += islands[gene.first]->value;
 		numAcquiredConnections += CalcConnectionsFromMask(gene.second);
+		Node* node = nullptr;
+		vector<Node*>::iterator iter = find_if(islands.begin(), islands.end(),
+			[&gene](const Node* n)
+			{
+				return n->nodeID == gene.first;
+			});
+		if (iter != islands.end())
+		{
+			node = *iter;
+		}
+
+		if (node)
+		{
+			if (node->value < CalcConnectionsFromMask(gene.second))
+			{
+				cout << endl;
+			}
+		}
 	}
 
 	int disjointCount = IsDisjoint();
@@ -907,6 +928,11 @@ void HashiBoard::EvaluateChromosome(FitnessChromosome& chrome)
 	chrome.first += penaltyOverlappingBridge * overlappingBridges;
 	chrome.first += penaltyExcessiveNode * incorrectNodeValues;
 	chrome.first += penaltyDisjoint * disjointCount;
+
+	if (chrome.first > 1.f)
+	{
+		cout << endl;
+	}
 }
 
 int HashiBoard::CalcConnectionsFromMask(uint8 connection)
@@ -1123,9 +1149,9 @@ void HashiBoard::PerformCrossover(const vector<pair<int, int>>& crossoverChromes
 	}
 }
 
-void HashiBoard::PerformMutation(const vector<int>& mutationChromes) 
+void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 {
-	for (int chromeIndex : mutationChromes) 
+	for (int chromeIndex : mutationChromes)
 	{
 		ClearBridgesOnBoard();
 		for (Node* node : islands)
@@ -1135,21 +1161,40 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 
 		Chromosome& chromosome = population[chromeIndex].second;
 
+		const int geneCount = static_cast<int>(ceil(static_cast<float>(chromosome.size()) / 5));
+		int mutatedGene = rand() % static_cast<int>(chromosome.size());
+		Gene* gene = &chromosome[mutatedGene];
+		vector<int> mutatedGenes;
+		mutatedGenes.push_back(mutatedGene);
+
 		// Randomly mutate genes in the chromosome
-		for (Gene& gene : chromosome) 
+		for (int count = 0; count < geneCount; ++count)
 		{
-			uint8& connection = gene.second;
+			uint8& connection = gene->second;
 			int bitToToggle;
-			Node* node = islands[gene.first];
+			Node* node = islands[gene->first];
 			if (node->neighbors.empty()) continue;
 			bool bFoundBit = false;
 			Direction dir = Direction::INVALID;
 			Neighbor* nb = nullptr;
+			vector<int> possibleBridges;
+			int bitCount = 0;
+			uint8 iterMask = connection;
+			for (iterMask; bitCount < 2 * BITMASK_BOUNDARY; iterMask >>= 1)
+			{
+				possibleBridges.push_back(bitCount++);
+			}
+			uint8 mask = connection;
 			do
 			{
-				bitToToggle = rand() % (2 * BITMASK_BOUNDARY);
+				bitToToggle = possibleBridges.front(); possibleBridges.erase(possibleBridges.begin());
+				int shift = (bitToToggle < BITMASK_BOUNDARY ? bitToToggle + BITMASK_BOUNDARY : bitToToggle - BITMASK_BOUNDARY);
+				if ((mask >> shift) & 1)
+				{
+					bitToToggle = possibleBridges.front(); possibleBridges.erase(possibleBridges.begin());
+				}
 				dir = static_cast<Direction>(bitToToggle % BITMASK_BOUNDARY);
-				
+
 				// Test that the bit direction is valid.
 				vector<Neighbor*>::iterator iter = find_if(node->neighbors.begin(), node->neighbors.end(),
 					[&dir](const Neighbor* n)
@@ -1165,9 +1210,8 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 					bFoundBit = true;
 					nb = *iter;
 				}
-			}
-			while (!bFoundBit && !nb);
-			bool bBitCleared = (gene.second >> bitToToggle) & 1;
+			} while (!bFoundBit && !nb);
+			bool bBitCleared = (gene->second >> bitToToggle) & 1;
 			connection ^= (1 << bitToToggle);
 
 			// Also toggle the corresponding bit in the neighbor's gene
@@ -1181,7 +1225,7 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 			{
 				nbGene = &(*cIter);
 			}
-			
+
 			if (nbGene)
 			{
 				int shift = (bitToToggle < BITMASK_BOUNDARY ? ((bitToToggle % BITMASK_BOUNDARY) ^ 1) : (((bitToToggle % BITMASK_BOUNDARY) ^ 1) + BITMASK_BOUNDARY));
@@ -1192,10 +1236,25 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 			{
 				int bitToSet;
 				Direction newDir;
-				bFoundBit = false;
+				bool bSetDouble = CalcConnectionsFromMask(connection) - node->value >= 2;
+				possibleBridges.clear();
+				bitCount = 0;
+				iterMask = connection;
+				for (iterMask; bitCount < 2 * BITMASK_BOUNDARY; iterMask >>= 1)
+				{
+					if (!(iterMask & 1))
+					{
+						int shift = bitCount + (bitCount < BITMASK_BOUNDARY ? BITMASK_BOUNDARY : -BITMASK_BOUNDARY);
+						if(!((connection >> shift) & 1))
+						{
+							possibleBridges.push_back(bitCount);
+						}
+					}
+					++bitCount;
+				}
 				do
 				{
-					bitToSet = rand() % (2 * BITMASK_BOUNDARY);
+					bitToSet = possibleBridges.back(); possibleBridges.pop_back();
 					newDir = static_cast<Direction>(bitToSet % BITMASK_BOUNDARY);
 
 					// Test that the bit direction is valid.
@@ -1204,20 +1263,19 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 						{
 							return n->neighborDirection == newDir;
 						});
-					if (iter == node->neighbors.end())
+					if (iter != node->neighbors.end())
 					{
-						bFoundBit = false;
-					}
-					else
-					{
-						bFoundBit = true;
 						nb = *iter;
+						if (abs(nb->neighborNode->value - node->value) < 2)
+						{
+							bitToSet -= BITMASK_BOUNDARY;
+						}
 					}
-				} while (newDir != dir || (gene.second >> bitToSet) & 1);
+				} while ((newDir == dir) || ((gene->second >> bitToSet) & 1));
 
 				if (nb)
 				{
-					gene.second ^= (1 << bitToSet);
+					gene->second ^= (1 << bitToSet);
 
 					// Also toggle the corresponding bit in the neighbor's gene
 					nbGene = nullptr;
@@ -1238,6 +1296,13 @@ void HashiBoard::PerformMutation(const vector<int>& mutationChromes)
 					}
 				}
 			}
+			mutatedGene = rand() % static_cast<int>(chromosome.size());
+			while (find(mutatedGenes.begin(), mutatedGenes.end(), mutatedGene) != mutatedGenes.end())
+			{
+				mutatedGene = rand() % static_cast<int>(chromosome.size());
+			}
+			gene = &chromosome[mutatedGene];
+			mutatedGenes.push_back(mutatedGene);
 		}
 
 		FixChromosomeConnections(chromosome);
@@ -1437,6 +1502,12 @@ bool HashiBoard::CheckIfUnique(const Chromosome& chromosome)
 
 void HashiBoard::FixChromosomeConnections(Chromosome& chromosome)
 {
+	ClearBridgesOnBoard();
+	for (Node* node : islands)
+	{
+		UpdateBaseNeighborInfo(node);
+	}
+
 	Chromosome shuffledChrome = chromosome;
 	random_shuffle(shuffledChrome.begin(), shuffledChrome.end());
 	// Fix mirroring connections between islands from different parents.
@@ -1474,16 +1545,15 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 		//they might actually be hit by overlapping bridges.
 		 
 		//This will get checked and penalized later on, but for now, keep them.
-		ClearBridgesOnBoard();
-		UpdateBaseNeighborInfo(node);
+	
 		uint8& mask = gene.second;
 
 		uint8 iterMask = mask;
-		int bitCount = 0;
+		int bitCount = 7;
 		// Iterate through the mask.
 		for (int i = 0; i < 2 * BITMASK_BOUNDARY && iterMask; ++i)
 		{
-			if (iterMask & 1)
+			if (iterMask & 128)
 			{
 				// Obtain the neighbor.
 				Direction dir = static_cast<Direction>(bitCount % BITMASK_BOUNDARY);
@@ -1503,14 +1573,18 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 				{
 					int nbId = nb->neighborNode->nodeID;
 					Gene* nbGene = nullptr;
-					Chromosome::iterator citer = find_if(chromosome.begin(), chromosome.end(),
+					Chromosome::iterator nbIter = find_if(chromosome.begin(), chromosome.end(),
 						[&nbId](const Gene& g)
 						{
 							return g.first == nbId;
 						});
-					if (citer != chromosome.end())
+					if (nbIter != chromosome.end())
 					{
-						nbGene = &(*citer);
+						nbGene = &(*nbIter);
+					}
+					else
+					{
+						cout << endl;
 					}
 
 					if (nbGene)
@@ -1520,18 +1594,27 @@ void HashiBoard::FixMirroringConnections(Chromosome& chromosome)
 						int shift = ((static_cast<int>(dir) ^ 1) + (numNbCon == 2 ? BITMASK_BOUNDARY : 0));
 						if (!((nbGene->second >> shift) & 1))
 						{
-							if (nbGene->second >> (shift + (numNbCon == 2 ? -BITMASK_BOUNDARY : BITMASK_BOUNDARY)))
+							int translation = numNbCon == 2 ? -BITMASK_BOUNDARY : BITMASK_BOUNDARY;
+							if ((nbGene->second >> (shift + translation)) & 1)
 							{
-								nbGene->second &= ~(1 << (shift + (numNbCon == 2 ? -BITMASK_BOUNDARY : BITMASK_BOUNDARY)));
+								nbGene->second &= ~(1 << (shift + translation));
 							}
 							nbGene->second |= 1 << shift;
 						}
+						else
+						{
+							cout << endl;
+						}
 					}
+				}
+				else
+				{
+					mask &= ~(1 << bitCount);
 				}
 			}
 
-			iterMask >>= 1;
-			++bitCount;
+			iterMask <<= 1;
+			--bitCount;
 		}
 	}
 }
@@ -1547,11 +1630,11 @@ void HashiBoard::FixExcessConnections(Chromosome& chromosome)
 		while (CalcConnectionsFromMask(mask) > node->value)
 		{
 			// Randomly select a bit to turn off to reduce the number of connections.
-			int bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
+			int bitToTurnOff = mask >> BITMASK_BOUNDARY ? (rand() % BITMASK_BOUNDARY) + BITMASK_BOUNDARY : (rand() % BITMASK_BOUNDARY);
 			// Ensure the bit to turn off is set.
-			while (!(mask & (1 << bitToTurnOff)) && bitToTurnOff < BITMASK_BOUNDARY)
+			while (!(mask & (1 << bitToTurnOff)))
 			{
-				bitToTurnOff = rand() % (2 * BITMASK_BOUNDARY);
+				bitToTurnOff = mask >> BITMASK_BOUNDARY ? (rand() % BITMASK_BOUNDARY) + BITMASK_BOUNDARY : (rand() % BITMASK_BOUNDARY);
 			}
 			mask &= ~(1 << bitToTurnOff);
 
@@ -1567,20 +1650,24 @@ void HashiBoard::FixExcessConnections(Chromosome& chromosome)
 			{
 				nb = *iter;
 			}
+			else
+			{
+				cout << endl;
+			}
 
 			if (nb)
 			{
 				// Obtain the neighbor gene.
 				int nbId = nb->neighborNode->nodeID;
 				Gene* nbGene = nullptr;
-				Chromosome::iterator citer = find_if(chromosome.begin(), chromosome.end(),
+				Chromosome::iterator nbIter = find_if(chromosome.begin(), chromosome.end(),
 					[&nbId](const Gene& g)
 					{
 						return g.first == nbId;
 					});
-				if (citer != chromosome.end())
+				if (nbIter != chromosome.end())
 				{
-					nbGene = &(*citer);
+					nbGene = &(*nbIter);
 				}
 
 				if (nbGene)
