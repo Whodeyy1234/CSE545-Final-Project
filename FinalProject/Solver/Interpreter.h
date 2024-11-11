@@ -266,6 +266,10 @@ public:
 	static void ParseFloatString(string floatsString, vector<float>& floats);
 
 private:
+	int numCrossoverChromes = 0;
+	int numMutatedChromes = 0;
+	float mutationAvgFitness = 0.0;
+	float crossoverAvgFitness = 0.0;
 	/// <summary>
 	/// Texture to render to.
 	/// </summary>
@@ -445,7 +449,7 @@ private:
 	/// Essentially adds or removes connections between two islands
 	/// </summary>
 	/// <param name="mutationChromes"> Chromosomes to mutate </param>
-	void PerformMutation(const vector<int>& mutationChromes);
+	void PerformMutation(const vector<int>& mutationChromes, Parameters params);
 
 	/// <summary>
 	/// Performs the Wisdom of Crowds operation on the population.
